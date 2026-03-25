@@ -1,0 +1,17 @@
+{
+  "title": "Salah satu bilangan yang ada di antara tanda garis (|) tidak sesuai dengan pola yang berlaku pada barisan bilangan di bawah ini. Tentukan satu bilangan tersebut!",
+  "sequence": [3, 5, 4, 10, 5, 15, 7, 20, 7, 25, 8],
+  "delimiters": [2, 7],
+  "labels": [
+    { "index": 3, "label": "A" },
+    { "index": 4, "label": "B" },
+    { "index": 5, "label": "C" },
+    { "index": 6, "label": "D" },
+    { "index": 7, "label": "E" }
+  ],
+  "options": ["10", "5", "15", "7", "20"],
+  "wrongIndex": 6,
+  "correctValue": 6,
+  "operators": ["+2", "-1", "+6", "-5", "+10", "-8", "+13", "-13", "+18", "-17"],
+  "notes": "Contoh data untuk label di atas angka."
+}

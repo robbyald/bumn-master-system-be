@@ -1,0 +1,1 @@
+CREATE INDEX payment_order_externalOrderNo_idx ON payment_order(external_order_no);

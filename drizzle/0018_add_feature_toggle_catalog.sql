@@ -1,0 +1,1 @@
+ALTER TABLE feature_toggle ADD COLUMN `catalog` integer NOT NULL DEFAULT 1;

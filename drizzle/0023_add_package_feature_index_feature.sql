@@ -1,0 +1,1 @@
+CREATE INDEX package_feature_featureCode_idx ON package_feature(feature_code);

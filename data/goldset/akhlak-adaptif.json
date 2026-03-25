@@ -1,0 +1,362 @@
+[
+  {
+    "id": "AKH-ADAPTIF-001",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Perusahaan merilis aplikasi internal baru untuk manajemen proyek harian, tetapi masih banyak bug dan UI membingungkan. Sikap Anda...",
+    "options": [
+      "Kembali memakai grup chat dan spreadsheet manual karena lebih cepat.",
+      "Menggunakan aplikasi seadanya dan menunggu IT memperbaiki semuanya.",
+      "Tetap memakai aplikasi, mencatat kendala, dan memberi feedback konstruktif ke tim IT.",
+      "Meminta atasan menunda implementasi hingga tahun depan."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Pegawai adaptif menjadi bagian dari solusi dengan feedback proaktif untuk perbaikan berkelanjutan.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-002",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Di tengah kuartal berjalan, manajemen mengubah arah strategi bisnis secara drastis. Proyek yang Anda kerjakan setengah jalan menjadi tidak relevan. Sikap Anda...",
+    "options": [
+      "Menyelesaikan proyek lama dulu sebagai bentuk tanggung jawab profesional.",
+      "Menghentikan proyek lama, mempelajari tren baru, dan merancang ulang strategi agar selaras target.",
+      "Mengajukan protes karena perubahan mendadak merugikan waktu tim.",
+      "Meminta waktu libur sejenak untuk menenangkan pikiran."
+    ],
+    "correctAnswer": "B",
+    "explanation": "Adaptif menuntut pivot cepat tanpa terjebak sunk cost, lalu menyelaraskan strategi baru.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-003",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Anda dimutasi ke cabang dengan fasilitas teknologi tertinggal dan proses kerja masih banyak memakai dokumen fisik. Sikap Anda...",
+    "options": [
+      "Memaklumi dan ikut bekerja dengan ritme lambat.",
+      "Mengeluhkan fasilitas ke kantor pusat agar segera dikirim peralatan baru.",
+      "Beradaptasi dengan kondisi sambil menginisiasi digitalisasi bertahap menggunakan alat yang tersedia.",
+      "Menolak tugas yang mengharuskan penggunaan dokumen fisik."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Adaptif menerima realitas lapangan namun tetap proaktif mendorong perbaikan bertahap.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-004",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Klien meminta revisi format laporan yang sangat berbeda dari template standar, dengan tenggat ketat. Sikap Anda...",
+    "options": [
+      "Menolak karena terikat SOP perusahaan.",
+      "Meminta tambahan waktu berminggu-minggu.",
+      "Menerima revisi namun mengerjakan seadanya.",
+      "Cepat mempelajari format baru dan menyesuaikan laporan tanpa melanggar tenggat."
+    ],
+    "correctAnswer": "D",
+    "explanation": "Adaptif berarti fleksibel dan cepat menyesuaikan diri terhadap tuntutan klien.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-005",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Anda ditunjuk menjadi ketua tim proyek tanpa preseden dan tanpa panduan spesifik. Sikap Anda...",
+    "options": [
+      "Menunggu arahan detail dari direksi sebelum melangkah.",
+      "Mengembalikan mandat karena parameter proyek tidak jelas.",
+      "Proaktif riset eksternal, membuat kerangka kerja eksperimental, lalu menyesuaikan seiring berjalan.",
+      "Mengerjakan proyek dengan menebak-nebak karena perusahaan pasti memaklumi."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Adaptif di situasi VUCA menuntut inisiatif membangun framework dan iterasi cepat.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-006",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Kompetitor meluncurkan layanan AI yang merebut pangsa pasar. Sikap Anda di tim pengembangan bisnis...",
+    "options": [
+      "Menganggap itu tren sesaat dan fokus pada produk konvensional.",
+      "Menganalisis teknologi AI kompetitor dan mengusulkan pengembangan layanan serupa atau lebih baik.",
+      "Menurunkan harga besar-besaran agar bisa bersaing.",
+      "Mengajukan resign dan melamar ke kompetitor."
+    ],
+    "correctAnswer": "B",
+    "explanation": "Adaptif berarti merespons disrupsi teknologi dengan inovasi, bukan defensif.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-007",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Perusahaan mengubah sistem kerja menjadi Agile Squad dengan kolaborasi lintas divisi setiap hari. Sikap Anda...",
+    "options": [
+      "Meminta izin tetap bekerja terpisah di meja lama.",
+      "Membuka diri, menyesuaikan komunikasi, dan melebur dalam dinamika kolaborasi baru.",
+      "Bergabung namun memakai headphone sepanjang hari agar tidak diganggu.",
+      "Meminta pindah ke divisi yang belum menerapkan Agile."
+    ],
+    "correctAnswer": "B",
+    "explanation": "Adaptif membutuhkan keterbukaan dan penyesuaian terhadap budaya kerja baru.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-008",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Regulasi baru membuat kampanye pemasaran yang sudah disiapkan berbulan-bulan menjadi tidak sah. Kampanye harus jalan minggu depan. Sikap Anda...",
+    "options": [
+      "Tetap menjalankan kampanye secara sembunyi-sembunyi.",
+      "Membatalkan peluncuran dan membiarkan bulan ini tanpa marketing.",
+      "Mengumpulkan tim untuk brainstorming, mengubah konsep agar patuh regulasi dengan memanfaatkan aset yang ada.",
+      "Mengeluhkan regulasi di media sosial sebagai alasan keterlambatan."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Adaptif berarti pivot cepat dan proaktif agar tetap patuh regulasi tanpa kehilangan momentum.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-009",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Proses approval dokumen di divisi Anda sangat lambat. Di perusahaan lain sudah memakai tanda tangan digital. Sikap Anda...",
+    "options": [
+      "Mengikuti prosedur karena sudah budaya perusahaan sejak lama.",
+      "Memalsukan tanda tangan agar proses cepat selesai.",
+      "Mengeluhkan birokrasi saat jam makan siang bersama rekan.",
+      "Mempelajari e-signature, membuat proposal efisiensi, dan mempresentasikannya ke atasan."
+    ],
+    "correctAnswer": "D",
+    "explanation": "Adaptif adalah agen perubahan: proaktif mengusulkan perbaikan berbasis teknologi.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-010",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Kebijakan WFH permanen membuat produktivitas Anda menurun. Sikap Anda...",
+    "options": [
+      "Menerima penurunan produktivitas sebagai kewajaran.",
+      "Meminta keistimewaan agar hanya Anda yang boleh ke kantor.",
+      "Menata ulang ruang kerja di rumah, membuat jadwal disiplin, dan mencari metode agar tetap produktif.",
+      "Menghabiskan jam kerja untuk istirahat karena pengawasan longgar."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Adaptif menuntut penyesuaian mandiri agar kinerja tetap optimal di situasi baru.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-011",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Anda (Gen Z) frustrasi dengan anggota tim senior yang lambat merespons pesan digital. Sikap Anda...",
+    "options": [
+      "Memaksa mereka memakai cara kerja Anda karena lebih cepat.",
+      "Memahami perbedaan generasi dan menyesuaikan gaya komunikasi agar kolaborasi efektif.",
+      "Mengambil alih seluruh beban kerja tim agar cepat selesai.",
+      "Meminta atasan membuat tim baru yang isinya anak muda semua."
+    ],
+    "correctAnswer": "B",
+    "explanation": "Adaptif juga berarti people agility: menyesuaikan gaya komunikasi lintas generasi.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-012",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Setelah merger divisi, atasan baru Anda sangat micromanagement. Sikap Anda...",
+    "options": [
+      "Mengajukan mutasi karena tidak cocok dengan gaya kepemimpinan.",
+      "Memprotes gaya atasan secara terbuka di rapat pertama.",
+      "Mengobservasi ekspektasi atasan dan menyesuaikan cara kerja dengan laporan lebih detail.",
+      "Tetap bekerja seperti dulu dan mengabaikan tuntutan detail."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Adaptif menuntut penyesuaian pada pimpinan baru (manage up) untuk sinergi.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-013",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Tren industri beralih ke Big Data Analytics dengan software yang belum Anda kuasai. Sikap Anda...",
+    "options": [
+      "Menganggap skill konvensional masih cukup sehingga tidak perlu belajar.",
+      "Menunggu perusahaan membiayai kursus resmi sebelum mulai belajar.",
+      "Menyisihkan waktu akhir pekan untuk mempelajari software baru secara mandiri.",
+      "Membayar orang luar untuk mengerjakan analisis jika dibutuhkan."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Self-driven learning adalah inti adaptif terhadap perubahan teknologi.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-014",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Mesin utama pabrik rusak parah, suku cadang baru tiba bulan depan. Target produksi terancam gagal. Sikap Anda...",
+    "options": [
+      "Menghentikan produksi dan merumahkan karyawan sementara.",
+      "Melaporkan bahwa target bulan ini tidak mungkin tercapai.",
+      "Mengumpulkan tim teknis dan mencari solusi alternatif agar mesin tetap beroperasi meski terbatas.",
+      "Menyalahkan departemen maintenance atas kerugian."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Adaptif adalah problem solver yang mencari solusi darurat di tengah keterbatasan.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-015",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "SOP penanganan keluhan pelanggan terlalu kaku dan sering membuat pelanggan semakin marah. Sikap Anda sebagai Customer Service Manager...",
+    "options": [
+      "Meminta staf tetap berpegang pada SOP karena aturan di atas segalanya.",
+      "Menginstruksikan staf melanggar SOP bila pelanggan marah.",
+      "Mengevaluasi SOP, merancang pembaruan yang lebih fleksibel, lalu mengajukannya ke direksi.",
+      "Membiarkan staf menangani sesuai insting tanpa panduan."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Continuous improvement dilakukan lewat perbaikan proses yang profesional, bukan menabrak aturan.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-016",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Perusahaan melakukan efisiensi besar. Anggaran operasional dipangkas setengah, namun kualitas output harus tetap terjaga. Sikap Anda...",
+    "options": [
+      "Menyatakan kualitas pasti menurun jika anggaran dipangkas.",
+      "Bekerja dua kali lipat secara manual untuk menutup kekurangan anggaran.",
+      "Mengubah proses bisnis, mencari tools murah/gratis, dan memprioritaskan program berdampak tertinggi.",
+      "Meminta dana sumbangan dari divisi lain."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Adaptif berarti inovasi efisiensi: doing more with less secara cerdas.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-017",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Kampanye produk viral karena respons negatif. Anda sebagai Manajer PR menghadapi krisis. Tindakan Anda...",
+    "options": [
+      "Menunggu sampai kemarahan publik mereda sendiri.",
+      "Menyalahkan tim pemasaran di hadapan media.",
+      "Menarik kampanye, memonitor sentimen, dan menyiapkan permintaan maaf yang tulus serta responsif.",
+      "Menghapus semua komentar negatif di media sosial."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Crisis agility menuntut respons cepat, proaktif, dan berorientasi pemulihan reputasi.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-018",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "medium",
+    "usageType": "practice",
+    "question": "Anda tahu macro Excel bisa mempercepat laporan mingguan dari 3 jam menjadi 5 menit, namun belum pernah mempelajarinya. Sikap Anda...",
+    "options": [
+      "Tetap mengerjakan manual karena paling aman.",
+      "Meminta rekan IT membuatkan macro agar bisa dipakai selamanya.",
+      "Meluangkan waktu untuk belajar membuat macro agar laporan berikutnya jauh lebih cepat.",
+      "Mengeluh kepada atasan bahwa laporan terlalu memakan waktu."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Investasi belajar di awal untuk efisiensi berkelanjutan adalah ciri adaptif.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-019",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Model bisnis perusahaan berubah dari product-centric menjadi service-centric. Gaya sales agresif Anda kini dianggap tidak cocok. Sikap Anda...",
+    "options": [
+      "Tetap memakai cara agresif demi bonus bulanan.",
+      "Mempertanyakan keputusan manajemen karena mengancam karier Anda.",
+      "Mengubah mindset, mempelajari pendekatan relationship-building, dan menyesuaikan taktik penjualan.",
+      "Pasrah jika target tidak tercapai karena sistem berubah."
+    ],
+    "correctAnswer": "C",
+    "explanation": "Adaptif menuntut unlearning dan relearning saat model bisnis berubah.",
+    "source": "goldset",
+    "status": "approved"
+  },
+  {
+    "id": "AKH-ADAPTIF-020",
+    "category": "AKHLAK",
+    "subcategory": "Adaptif",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "Anda menemukan masalah teknis yang tidak ada solusinya di SOP dan atasan sedang dinas luar negeri. Sikap Anda...",
+    "options": [
+      "Menunggu atasan kembali minggu depan untuk meminta petunjuk.",
+      "Melakukan riset independen, mencoba solusi darurat yang aman, dan memitigasi dampak terburuk secara proaktif.",
+      "Menyerahkan masalah kepada departemen lain.",
+      "Menyembunyikan masalah dari laporan harian."
+    ],
+    "correctAnswer": "B",
+    "explanation": "Adaptif berarti berinisiatif mencari solusi saat tidak ada pedoman jelas.",
+    "source": "goldset",
+    "status": "approved"
+  }
+]

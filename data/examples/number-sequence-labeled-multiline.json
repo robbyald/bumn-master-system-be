@@ -1,0 +1,34 @@
+{
+  "title": "Angka yang tidak tepat karena tidak mengikuti pola pada deret angka berikut adalah …",
+  "sequence": [2, 4, 2, 5, 3, 12, 8, 40, 35, 210, 204],
+  "delimiters": [2, 7],
+  "labels": [
+    { "index": 3, "label": "A" },
+    { "index": 4, "label": "B" },
+    { "index": 5, "label": "C" },
+    { "index": 6, "label": "D" },
+    { "index": 7, "label": "E" }
+  ],
+  "wrongIndex": 3,
+  "correctValue": 6,
+  "explanationLines": [
+    {
+      "label": "Tips",
+      "text": "Cermati pola deret angka. Ini merupakan pola template: x2 -2 x3 -3 x4 -4 x5 -5 x6 -6."
+    }
+  ],
+  "explanationRows": [
+    {
+      "sequence": [2, 4, 2, 5, 3, 12, 8, 40, 35, 210, 204],
+      "operators": ["x2", "-2", "+3", "-2", "x4", "-4", "x5", "-5", "x6", "-6"],
+      "highlight": { "index": 3, "color": "#dc2626" }
+    },
+    {
+      "sequence": [2, 4, 2, 6, 3, 12, 8, 40, 35, 210, 204],
+      "operators": ["x2", "-2", "x3", "-3", "x4", "-4", "x5", "-5", "x6", "-6"],
+      "highlight": { "index": 3, "color": "#facc15" }
+    }
+  ],
+  "answer": "A",
+  "explanationText": "Pilihan A salah, seharusnya 6."
+}
