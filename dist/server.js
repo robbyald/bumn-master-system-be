@@ -26,12 +26,19 @@ import profileRouter from "./routes/profile.js";
 import promoBannerRouter from "./routes/promoBanner.js";
 import adminPromoBannerRouter from "./routes/adminPromoBanner.js";
 import adminOverviewRouter from "./routes/adminOverview.js";
+import adminTransactionsRouter from "./routes/adminTransactions.js";
 import featureTogglesRouter from "./routes/featureToggles.js";
 import adminFeatureTogglesRouter from "./routes/adminFeatureToggles.js";
 import latsolRouter from "./routes/latsol.js";
 import paymentsRouter from "./routes/payments.js";
+import adminPaymentMethodsRouter from "./routes/adminPaymentMethods.js";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+process.on("unhandledRejection", (reason) => {
+    // Keep process alive and surface async SDK bootstrap errors in logs.
+    // eslint-disable-next-line no-console
+    console.error("[BE] Unhandled Rejection:", reason);
+});
 const app = express();
 const uploadsDir = join(process.cwd(), "uploads", "promo-banner");
 try {
@@ -85,6 +92,11 @@ app.use((req, res, next) => {
         return next();
     if (req.path.startsWith("/api/payments/doku/webhook"))
         return next();
+    // Dev helper: allow testing DOKU endpoints via Postman without CSRF token.
+    // Keep CSRF enforced for these paths in production.
+    if (process.env.NODE_ENV !== "production" && req.path.startsWith("/api/payments/doku/")) {
+        return next();
+    }
     return csrfProtection(req, res, next);
 });
 app.get("/api/csrf", (req, res) => {
@@ -189,7 +201,9 @@ app.use("/api/admin/latsol", adminLatsolRouter);
 app.use("/api/admin/support", adminSupportTicketsRouter);
 app.use("/api/admin/promo-banner", adminPromoBannerRouter);
 app.use("/api/admin/overview", adminOverviewRouter);
+app.use("/api/admin/transactions", adminTransactionsRouter);
 app.use("/api/admin/features", adminFeatureTogglesRouter);
+app.use("/api/admin/payment-methods", adminPaymentMethodsRouter);
 app.listen(env.PORT, () => {
     // eslint-disable-next-line no-console
     console.log(`[BE] Listening on http://localhost:${env.PORT}`);

@@ -332,6 +332,52 @@ export const paymentOrder = sqliteTable(
   ],
 );
 
+export const paymentGatewayConfig = sqliteTable(
+  "payment_gateway_config",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull().default("doku"),
+    mode: text("mode").notNull().default("sandbox"), // sandbox | production
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("payment_gateway_config_provider_idx").on(table.provider)],
+);
+
+export const paymentMethodConfig = sqliteTable(
+  "payment_method_config",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull().default("doku"),
+    methodType: text("method_type").notNull().default("virtual_account"),
+    bankCode: text("bank_code").notNull(),
+    displayName: text("display_name").notNull(),
+    isVisible: integer("is_visible", { mode: "boolean" }).notNull().default(true),
+    sandboxPartnerServiceId: text("sandbox_partner_service_id").notNull().default(""),
+    sandboxCustomerNo: text("sandbox_customer_no").notNull().default(""),
+    sandboxChannel: text("sandbox_channel").notNull().default(""),
+    productionPartnerServiceId: text("production_partner_service_id").notNull().default(""),
+    productionCustomerNo: text("production_customer_no").notNull().default(""),
+    productionChannel: text("production_channel").notNull().default(""),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("payment_method_config_provider_idx").on(table.provider),
+    index("payment_method_config_visible_idx").on(table.isVisible),
+    index("payment_method_config_sortOrder_idx").on(table.sortOrder),
+  ],
+);
+
 export const featureToggle = sqliteTable(
   "feature_toggle",
   {

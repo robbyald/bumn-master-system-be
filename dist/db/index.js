@@ -86,6 +86,38 @@ CREATE TABLE IF NOT EXISTS promo_banner (
 );
 CREATE INDEX IF NOT EXISTS promo_banner_enabled_idx ON promo_banner(enabled);
 `);
+sqlite.exec(`
+CREATE TABLE IF NOT EXISTS payment_gateway_config (
+  id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL DEFAULT 'doku',
+  mode TEXT NOT NULL DEFAULT 'sandbox',
+  created_at INTEGER NOT NULL DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)),
+  updated_at INTEGER NOT NULL DEFAULT (cast(unixepoch('subsecond') * 1000 as integer))
+);
+CREATE INDEX IF NOT EXISTS payment_gateway_config_provider_idx ON payment_gateway_config(provider);
+`);
+sqlite.exec(`
+CREATE TABLE IF NOT EXISTS payment_method_config (
+  id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL DEFAULT 'doku',
+  method_type TEXT NOT NULL DEFAULT 'virtual_account',
+  bank_code TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  is_visible INTEGER NOT NULL DEFAULT 1,
+  sandbox_partner_service_id TEXT NOT NULL DEFAULT '',
+  sandbox_customer_no TEXT NOT NULL DEFAULT '',
+  sandbox_channel TEXT NOT NULL DEFAULT '',
+  production_partner_service_id TEXT NOT NULL DEFAULT '',
+  production_customer_no TEXT NOT NULL DEFAULT '',
+  production_channel TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)),
+  updated_at INTEGER NOT NULL DEFAULT (cast(unixepoch('subsecond') * 1000 as integer))
+);
+CREATE INDEX IF NOT EXISTS payment_method_config_provider_idx ON payment_method_config(provider);
+CREATE INDEX IF NOT EXISTS payment_method_config_visible_idx ON payment_method_config(is_visible);
+CREATE INDEX IF NOT EXISTS payment_method_config_sortOrder_idx ON payment_method_config(sort_order);
+`);
 // Seed default promo banner if empty
 try {
     const promoRows = sqlite.prepare("SELECT id FROM promo_banner LIMIT 1").all();
@@ -100,6 +132,46 @@ try {
         cast(unixepoch('subsecond') * 1000 as integer),
         cast(unixepoch('subsecond') * 1000 as integer)
       );
+    `);
+    }
+}
+catch {
+    // ignore
+}
+// Seed payment gateway mode if empty
+try {
+    const rows = sqlite
+        .prepare("SELECT id FROM payment_gateway_config WHERE id = 'doku' LIMIT 1")
+        .all();
+    if (!rows || rows.length === 0) {
+        sqlite.exec(`
+      INSERT INTO payment_gateway_config (id, provider, mode, created_at, updated_at)
+      VALUES ('doku', 'doku', 'sandbox', cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer));
+    `);
+    }
+}
+catch {
+    // ignore
+}
+// Seed default DOKU VA methods if empty
+try {
+    const rows = sqlite.prepare("SELECT id FROM payment_method_config LIMIT 1").all();
+    if (!rows || rows.length === 0) {
+        sqlite.exec(`
+      INSERT INTO payment_method_config (
+        id, provider, method_type, bank_code, display_name, is_visible,
+        sandbox_partner_service_id, sandbox_customer_no, sandbox_channel,
+        production_partner_service_id, production_customer_no, production_channel,
+        sort_order, created_at, updated_at
+      ) VALUES
+      ('doku_va_bri', 'doku', 'virtual_account', 'BRI', 'Virtual Account BRI', 1, '13925', '6', 'VIRTUAL_ACCOUNT_BRI', '', '', '', 1, cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer)),
+      ('doku_va_permata', 'doku', 'virtual_account', 'PERMATA', 'Virtual Account Permata', 1, '8856', '6', 'VIRTUAL_ACCOUNT_BANK_PERMATA', '', '', '', 2, cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer)),
+      ('doku_va_cimb', 'doku', 'virtual_account', 'CIMB', 'Virtual Account CIMB', 1, '1899', '0', 'VIRTUAL_ACCOUNT_BANK_CIMB', '', '', '', 3, cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer)),
+      ('doku_va_bca', 'doku', 'virtual_account', 'BCA', 'Virtual Account BCA', 1, '19008', '9', 'VIRTUAL_ACCOUNT_BCA', '', '', '', 4, cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer)),
+      ('doku_va_bsi', 'doku', 'virtual_account', 'BSI', 'Virtual Account BSI', 1, '2020', '20', 'VIRTUAL_ACCOUNT_BSI', '', '', '', 5, cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer)),
+      ('doku_va_bni', 'doku', 'virtual_account', 'BNI', 'Virtual Account BNI', 1, '8492', '3', 'VIRTUAL_ACCOUNT_BNI', '', '', '', 6, cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer)),
+      ('doku_va_mandiri', 'doku', 'virtual_account', 'MANDIRI', 'Virtual Account Mandiri', 1, '88899', '4', 'VIRTUAL_ACCOUNT_BANK_MANDIRI', '', '', '', 7, cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer)),
+      ('doku_va_btn', 'doku', 'virtual_account', 'BTN', 'Virtual Account BTN', 1, '95962', '6', 'VIRTUAL_ACCOUNT_BTN', '', '', '', 8, cast(unixepoch('subsecond') * 1000 as integer), cast(unixepoch('subsecond') * 1000 as integer));
     `);
     }
 }

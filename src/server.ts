@@ -26,10 +26,12 @@ import profileRouter from "./routes/profile.js";
 import promoBannerRouter from "./routes/promoBanner.js";
 import adminPromoBannerRouter from "./routes/adminPromoBanner.js";
 import adminOverviewRouter from "./routes/adminOverview.js";
+import adminTransactionsRouter from "./routes/adminTransactions.js";
 import featureTogglesRouter from "./routes/featureToggles.js";
 import adminFeatureTogglesRouter from "./routes/adminFeatureToggles.js";
 import latsolRouter from "./routes/latsol.js";
 import paymentsRouter from "./routes/payments.js";
+import adminPaymentMethodsRouter from "./routes/adminPaymentMethods.js";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -227,7 +229,9 @@ app.use("/api/admin/latsol", adminLatsolRouter);
 app.use("/api/admin/support", adminSupportTicketsRouter);
 app.use("/api/admin/promo-banner", adminPromoBannerRouter);
 app.use("/api/admin/overview", adminOverviewRouter);
+app.use("/api/admin/transactions", adminTransactionsRouter);
 app.use("/api/admin/features", adminFeatureTogglesRouter);
+app.use("/api/admin/payment-methods", adminPaymentMethodsRouter);
 
 app.listen(env.PORT, () => {
   // eslint-disable-next-line no-console

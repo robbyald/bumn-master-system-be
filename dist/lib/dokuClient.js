@@ -1,7 +1,15 @@
 import { createRequire } from "node:module";
 import { env } from "../env.js";
 const require = createRequire(import.meta.url);
-const decodePem = (value) => value.replace(/\\n/g, "\n");
+const unwrapQuoted = (value) => {
+    const v = String(value || "").trim();
+    if ((v.startsWith('"') && v.endsWith('"')) ||
+        (v.startsWith("'") && v.endsWith("'"))) {
+        return v.slice(1, -1);
+    }
+    return v;
+};
+const decodePem = (value) => unwrapQuoted(value).replace(/\\n/g, "\n").trim();
 const getSdk = () => {
     try {
         return require("doku-nodejs-library");
@@ -15,22 +23,58 @@ export const ensureDokuConfig = () => {
         throw new Error("DOKU config belum lengkap. Wajib isi DOKU_CLIENT_ID, DOKU_SECRET_KEY, dan DOKU_PRIVATE_KEY.");
     }
 };
-export const createDokuClient = () => {
+const snapSingletonByMode = {};
+class SafeSnap extends getSdk().Snap {
+    constructor(...args) {
+        super(...args);
+    }
+    async getTokenB2B() {
+        try {
+            return await super.getTokenB2B();
+        }
+        catch (error) {
+            this.__bootTokenError = error;
+            return {
+                responseCode: "5000000",
+                responseMessage: error?.message || "Failed to get token",
+            };
+        }
+    }
+    async getTokenB2BStrict() {
+        const TokenService = require("doku-nodejs-library/_services/tokenService");
+        const xTimestamp = TokenService.generateTimestamp();
+        const clientId = this.clientId;
+        const signature = TokenService.generateSignature(this.privateKey, clientId, xTimestamp);
+        const reqDto = TokenService.createTokenB2BRequestDTO(signature, xTimestamp, clientId);
+        this.__lastTokenDebug = { xTimestamp, clientId };
+        const tokenResp = await TokenService.createTokenB2B(reqDto, this.isProduction);
+        if (!tokenResp?.accessToken || !tokenResp?.expiresIn) {
+            throw new Error("Invalid token response");
+        }
+        this.setTokenB2B(tokenResp);
+        return tokenResp;
+    }
+}
+// Mirroring sample app flow: create one Snap instance and reuse it.
+export const getDokuSnap = (mode = env.DOKU_ENV || "sandbox") => {
+    const resolvedMode = mode === "production" ? "production" : "sandbox";
+    if (snapSingletonByMode[resolvedMode])
+        return snapSingletonByMode[resolvedMode];
     ensureDokuConfig();
     const sdk = getSdk();
-    const Snap = sdk?.Snap;
-    if (typeof Snap !== "function") {
+    if (typeof sdk?.Snap !== "function") {
         throw new Error("DOKU SDK tidak valid: class Snap tidak ditemukan.");
     }
-    return new Snap({
-        isProduction: env.DOKU_ENV === "production",
+    snapSingletonByMode[resolvedMode] = new SafeSnap({
+        isProduction: resolvedMode === "production",
         privateKey: decodePem(env.DOKU_PRIVATE_KEY),
-        clientID: env.DOKU_CLIENT_ID,
+        clientID: String(env.DOKU_CLIENT_ID || "").trim(),
         publicKey: env.DOKU_PUBLIC_KEY ? decodePem(env.DOKU_PUBLIC_KEY) : "",
         dokuPublicKey: env.DOKU_PUBLIC_KEY_DOKU ? decodePem(env.DOKU_PUBLIC_KEY_DOKU) : "",
-        issuer: env.DOKU_ISSUER || undefined,
-        secretKey: env.DOKU_SECRET_KEY,
+        issuer: env.DOKU_ISSUER || "",
+        secretKey: String(env.DOKU_SECRET_KEY || "").trim(),
     });
+    return snapSingletonByMode[resolvedMode];
 };
 export const buildPaymentJumpAppRequest = (payload) => {
     const PaymentJumpAppRequestDto = require("doku-nodejs-library/_models/paymentJumpAppRequestDTO");
@@ -42,7 +86,6 @@ export const buildPaymentJumpAppRequest = (payload) => {
     req.additionalInfo = {
         channel: env.DOKU_CHANNEL,
         orderTitle: payload.orderTitle,
-        supportDeepLinkCheckoutUrl: "false",
     };
     req.validUpTo = payload.validUpToIso;
     return req;
@@ -57,17 +100,45 @@ export const buildCheckStatusRequest = (payload) => {
     req.additionalInfo = { channel: env.DOKU_CHANNEL };
     return req;
 };
-export const dokuDoPaymentJumpApp = async (doku, requestDto, ipAddress, deviceId = "") => {
-    if (typeof doku?.doPaymentJumpApp !== "function") {
-        throw new Error("Method doPaymentJumpApp tidak tersedia di DOKU SDK.");
-    }
-    return doku.doPaymentJumpApp(requestDto, ipAddress, deviceId);
+export const buildCheckStatusVaRequest = (payload) => {
+    const CheckStatusVARequestDto = require("doku-nodejs-library/_models/checkStatusVARequestDTO");
+    const req = new CheckStatusVARequestDto();
+    req.partnerServiceId = payload.partnerServiceId;
+    req.customerNo = payload.customerNo;
+    req.virtualAccountNo = payload.virtualAccountNo;
+    // Keep nullable to avoid forcing request ids that might not match acquirer records.
+    req.inquiryRequestId = payload.inquiryRequestId ?? null;
+    req.paymentRequestId = payload.paymentRequestId ?? null;
+    req.additionalInfo = payload.additionalInfo ?? "";
+    return req;
 };
-export const dokuDoCheckStatus = async (doku, requestDto) => {
-    if (typeof doku?.doCheckStatus !== "function") {
-        throw new Error("Method doCheckStatus tidak tersedia di DOKU SDK.");
-    }
-    return doku.doCheckStatus(requestDto);
+export const buildCreateVaRequest = (payload) => {
+    const CreateVARequestDto = require("doku-nodejs-library/_models/createVaRequestDto");
+    const TotalAmount = require("doku-nodejs-library/_models/totalAmount");
+    const AdditionalInfo = require("doku-nodejs-library/_models/additionalInfo");
+    const VirtualAccountConfig = require("doku-nodejs-library/_models/virtualAccountConfig");
+    const req = new CreateVARequestDto();
+    req.partnerServiceId = payload.partnerServiceId;
+    req.customerNo = payload.customerNo;
+    req.virtualAccountNo = `${payload.partnerServiceId}${payload.customerNo}`;
+    req.virtualAccountName = payload.virtualAccountName;
+    req.virtualAccountEmail = payload.virtualAccountEmail || "";
+    req.virtualAccountPhone = payload.virtualAccountPhone || "";
+    req.trxId = payload.trxId;
+    const totalAmount = new TotalAmount();
+    totalAmount.value = payload.totalAmountValue;
+    totalAmount.currency = payload.totalAmountCurrency || "IDR";
+    req.totalAmount = totalAmount;
+    const virtualAccountConfig = new VirtualAccountConfig();
+    virtualAccountConfig.reusableStatus = Boolean(payload.reusableStatus ?? false);
+    const additionalInfo = new AdditionalInfo(payload.channel, virtualAccountConfig);
+    additionalInfo.channel = payload.channel;
+    additionalInfo.virtualAccountConfig = virtualAccountConfig;
+    req.additionalInfo = additionalInfo;
+    req.virtualAccountTrxType = payload.virtualAccountTrxType || "C";
+    req.expiredDate = payload.expiredDate || "";
+    req.freeText = payload.freeText || [];
+    return req;
 };
 export const extractCheckoutUrl = (resp) => {
     const candidates = [
@@ -101,6 +172,23 @@ export const mapDokuStatus = (resp) => {
     if (["CANCELLED", "CANCELED", "VOIDED"].includes(status))
         return "cancelled";
     if (["FAILED", "DENIED"].includes(status))
+        return "failed";
+    return "pending";
+};
+export const mapDokuVaStatus = (resp) => {
+    const reasonEn = String(resp?.virtualAccountData?.paymentFlagReason?.english || "").toUpperCase();
+    const reasonId = String(resp?.virtualAccountData?.paymentFlagReason?.indonesia || "").toUpperCase();
+    const responseCode = String(resp?.responseCode || "");
+    if (responseCode.startsWith("200")) {
+        if (reasonEn.includes("PENDING") || reasonId.includes("BELUM"))
+            return "pending";
+        if (reasonEn.includes("PAID") || reasonEn.includes("SUCCESS") || reasonId.includes("LUNAS"))
+            return "paid";
+        return "pending";
+    }
+    if (responseCode.startsWith("404"))
+        return "expired";
+    if (responseCode.startsWith("401") || responseCode.startsWith("403"))
         return "failed";
     return "pending";
 };
