@@ -1,11 +1,19 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from "../auth.js";
 import { fromNodeHeaders } from "better-auth/node";
 import { db } from "../db/index.js";
-import { examPackage, paymentOrder, userPackage, userProfile } from "../db/schema.js";
+import {
+  examPackage,
+  paymentGatewayConfig,
+  paymentMethodConfig,
+  paymentOrder,
+  userPackage,
+  userPointHistory,
+  userProfile,
+} from "../db/schema.js";
 import {
   buildCheckStatusRequest,
   buildCheckStatusVaRequest,
@@ -34,16 +42,110 @@ const ensureEnrolled = async (userId: string, packageId: string) => {
   }
 };
 
+const spendPointsOnceForOrder = async (args: {
+  userId: string;
+  packageId: string;
+  orderId: string;
+  pointsUsed: number;
+}) => {
+  const pointsUsed = Math.max(0, Math.floor(args.pointsUsed || 0));
+  if (pointsUsed <= 0) return;
+
+  const description = `Diskon poin checkout (${args.orderId})`;
+  const existing = await db
+    .select({ id: userPointHistory.id })
+    .from(userPointHistory)
+    .where(
+      and(
+        eq(userPointHistory.userId, args.userId),
+        eq(userPointHistory.type, "spend"),
+        eq(userPointHistory.description, description),
+      ),
+    )
+    .limit(1);
+
+  if (existing.length > 0) return;
+
+  await db
+    .update(userProfile)
+    .set({
+      points: sql`CASE WHEN ${userProfile.points} >= ${pointsUsed} THEN ${userProfile.points} - ${pointsUsed} ELSE 0 END`,
+    })
+    .where(eq(userProfile.userId, args.userId));
+
+  await db.insert(userPointHistory).values({
+    id: randomUUID(),
+    userId: args.userId,
+    amount: pointsUsed,
+    type: "spend",
+    description,
+  });
+};
+
 const formatPartnerServiceId = (raw: string) => {
   const trimmedDigits = String(raw || "").trim().replace(/\s+/g, "");
   // DOKU expects max 8 chars and commonly left-padding space for BIN/company code.
   return trimmedDigits.padStart(8, " ").slice(-8);
 };
 
-const formatCustomerNo2Digits = (raw: string) => {
-  const digits = String(raw || "").replace(/\D+/g, "");
-  if (!digits) return "01";
-  return digits.slice(-2).padStart(2, "0");
+const normalizeMode = (mode: string | null | undefined): "sandbox" | "production" =>
+  String(mode || "").toLowerCase() === "production" ? "production" : "sandbox";
+
+const getGatewayMode = async (): Promise<"sandbox" | "production"> => {
+  const rows = await db
+    .select({ mode: paymentGatewayConfig.mode })
+    .from(paymentGatewayConfig)
+    .where(eq(paymentGatewayConfig.id, "doku"))
+    .limit(1);
+  return normalizeMode(rows[0]?.mode);
+};
+
+const buildCustomerNoFromConfig = (raw: string) => {
+  const seed = String(raw || "").replace(/\D+/g, "").slice(0, 20);
+  if (!seed) return "6";
+  // Keep single-digit legacy value as-is (matches current sandbox behavior for some BINs).
+  if (seed.length <= 1) return seed;
+  if (seed.length >= 20) return seed.slice(0, 20);
+  const randomTail = String(Date.now()).slice(-Math.max(1, 20 - seed.length));
+  return `${seed}${randomTail}`.slice(0, 20);
+};
+
+const inferPaymentMethod = (raw: any): string | null => {
+  const checkoutName = raw?._checkoutMeta?.paymentMethodName;
+  if (typeof checkoutName === "string" && checkoutName.trim()) return checkoutName.trim();
+
+  const channel = String(raw?.virtualAccountData?.additionalInfo?.channel || "").trim();
+  if (!channel) return null;
+  if (channel.startsWith("VIRTUAL_ACCOUNT_")) {
+    const bank = channel.replace("VIRTUAL_ACCOUNT_BANK_", "").replace("VIRTUAL_ACCOUNT_", "");
+    return `Virtual Account ${bank}`;
+  }
+  return channel;
+};
+
+const pickMethodConfigByMode = (
+  mode: "sandbox" | "production",
+  method: {
+    sandboxPartnerServiceId: string;
+    sandboxCustomerNo: string;
+    sandboxChannel: string;
+    productionPartnerServiceId: string;
+    productionCustomerNo: string;
+    productionChannel: string;
+  },
+) => {
+  if (mode === "production") {
+    return {
+      partnerServiceId: method.productionPartnerServiceId,
+      customerNoSeed: method.productionCustomerNo,
+      channel: method.productionChannel,
+    };
+  }
+  return {
+    partnerServiceId: method.sandboxPartnerServiceId,
+    customerNoSeed: method.sandboxCustomerNo,
+    channel: method.sandboxChannel,
+  };
 };
 
 const toIsoWithOffset = (date: Date) => {
@@ -68,7 +170,8 @@ router.get("/doku/token-b2b", async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const doku = getDokuSnap();
+    const mode = await getGatewayMode();
+    const doku = getDokuSnap(mode);
     if (typeof doku?.getTokenB2B !== "function") {
       return res.status(500).json({ message: "Method getTokenB2B tidak tersedia di DOKU SDK." });
     }
@@ -86,7 +189,8 @@ router.get("/doku/token-b2b", async (req, res) => {
     });
   } catch (err: any) {
     try {
-      const doku = getDokuSnap();
+      const mode = await getGatewayMode();
+      const doku = getDokuSnap(mode);
       if (doku?.__lastTokenDebug) {
         console.log("[DOKU TOKEN DEBUG] X-TIMESTAMP:", doku.__lastTokenDebug.xTimestamp);
         console.log("[DOKU TOKEN DEBUG] X-CLIENT-KEY:", doku.__lastTokenDebug.clientId);
@@ -103,6 +207,128 @@ router.get("/doku/token-b2b", async (req, res) => {
   }
 });
 
+router.get("/methods", async (req, res) => {
+  const session = await getSession(req);
+  if (!session || !session.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const mode = await getGatewayMode();
+  const methods = await db
+    .select({
+      id: paymentMethodConfig.id,
+      provider: paymentMethodConfig.provider,
+      methodType: paymentMethodConfig.methodType,
+      bankCode: paymentMethodConfig.bankCode,
+      displayName: paymentMethodConfig.displayName,
+      isVisible: paymentMethodConfig.isVisible,
+      sandboxPartnerServiceId: paymentMethodConfig.sandboxPartnerServiceId,
+      sandboxCustomerNo: paymentMethodConfig.sandboxCustomerNo,
+      sandboxChannel: paymentMethodConfig.sandboxChannel,
+      productionPartnerServiceId: paymentMethodConfig.productionPartnerServiceId,
+      productionCustomerNo: paymentMethodConfig.productionCustomerNo,
+      productionChannel: paymentMethodConfig.productionChannel,
+      sortOrder: paymentMethodConfig.sortOrder,
+    })
+    .from(paymentMethodConfig)
+    .where(and(eq(paymentMethodConfig.provider, "doku"), eq(paymentMethodConfig.isVisible, true)))
+    .orderBy(asc(paymentMethodConfig.sortOrder));
+
+  const readyMethods = methods
+    .map((m) => {
+      const cfg = pickMethodConfigByMode(mode, m);
+      return {
+        id: m.id,
+        provider: m.provider,
+        methodType: m.methodType,
+        bankCode: m.bankCode,
+        displayName: m.displayName,
+        channel: cfg.channel,
+        isReady: Boolean(cfg.partnerServiceId && cfg.customerNoSeed && cfg.channel),
+      };
+    })
+    .filter((m) => m.isReady);
+
+  return res.json({
+    mode,
+    methods: readyMethods,
+  });
+});
+
+router.get("/history", async (req, res) => {
+  const session = await getSession(req);
+  if (!session || !session.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const parsed = z
+    .object({
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(50).default(10),
+    })
+    .safeParse(req.query || {});
+  const page = parsed.success ? parsed.data.page : 1;
+  const limit = parsed.success ? parsed.data.limit : 10;
+  const offset = (page - 1) * limit;
+
+  const allRows = await db
+    .select({
+      orderId: paymentOrder.id,
+      transactionId: paymentOrder.externalOrderNo,
+      packageId: paymentOrder.packageId,
+      packageTitle: examPackage.title,
+      amount: paymentOrder.amount,
+      status: paymentOrder.status,
+      paymentMethod: paymentOrder.provider,
+      rawResponse: paymentOrder.rawResponse,
+      expiresAt: paymentOrder.expiresAt,
+      createdAt: paymentOrder.createdAt,
+      paidAt: paymentOrder.paidAt,
+    })
+    .from(paymentOrder)
+    .leftJoin(examPackage, eq(examPackage.id, paymentOrder.packageId))
+    .where(eq(paymentOrder.userId, session.user.id))
+    .orderBy(desc(paymentOrder.createdAt));
+
+  const total = allRows.length;
+  const rows = allRows.slice(offset, offset + limit);
+
+  return res.json({
+    items: rows.map((r) => {
+      const raw = (() => {
+        try {
+          return r.rawResponse ? JSON.parse(r.rawResponse) : {};
+        } catch {
+          return {};
+        }
+      })();
+      const vaData = raw?.virtualAccountData || {};
+      const additionalInfo = vaData?.additionalInfo || {};
+      const totalAmount = vaData?.totalAmount || {};
+
+      return {
+        ...r,
+        paymentMethod: r.paymentMethod || "doku",
+        paymentMethodLabel: inferPaymentMethod(raw),
+        packageTitle: r.packageTitle || "Paket",
+        amount: r.amount ?? 0,
+        amountCurrency: totalAmount?.currency || "IDR",
+        vaNumber: String(vaData?.virtualAccountNo || "").replace(/\s+/g, ""),
+        howToPayPage: additionalInfo?.howToPayPage || null,
+        howToPayApi: additionalInfo?.howToPayApi || null,
+        expiredDate:
+          r.expiresAt
+            ? new Date(r.expiresAt).toISOString()
+            : (vaData?.expiredDate ? String(vaData.expiredDate) : null),
+        rawResponse: undefined,
+      };
+    }),
+    total,
+    page,
+    limit,
+  });
+});
+
 router.post("/doku/checkout", async (req, res) => {
   const session = await getSession(req);
   if (!session || !session.user) {
@@ -110,7 +336,7 @@ router.post("/doku/checkout", async (req, res) => {
   }
 
   const profile = await db
-    .select({ status: userProfile.status, phone: userProfile.phone })
+    .select({ status: userProfile.status, phone: userProfile.phone, points: userProfile.points })
     .from(userProfile)
     .where(eq(userProfile.userId, session.user.id))
     .limit(1);
@@ -119,12 +345,19 @@ router.post("/doku/checkout", async (req, res) => {
     return res.status(403).json({ message: "Akun Anda diblokir." });
   }
 
-  const parsed = z.object({ packageId: z.string().min(1) }).safeParse(req.body || {});
+  const parsed = z
+    .object({
+      packageId: z.string().min(1),
+      pointsToUse: z.coerce.number().int().min(0).optional(),
+      paymentMethodId: z.string().min(1).optional(),
+    })
+    .safeParse(req.body || {});
   if (!parsed.success) {
     return res.status(400).json({ message: "packageId is required" });
   }
 
   const packageId = parsed.data.packageId;
+  const mode = await getGatewayMode();
   const pkgRows = await db
     .select({
       id: examPackage.id,
@@ -145,6 +378,38 @@ router.post("/doku/checkout", async (req, res) => {
     return res.json({ mode: "free", packageId: pkg.id, status: "paid" });
   }
 
+  const availablePoints = Math.max(0, Number(profile[0]?.points || 0));
+  const requestedPoints = Math.max(0, Number(parsed.data.pointsToUse || 0));
+  const clampedToBalance = Math.min(requestedPoints, availablePoints);
+  const maxPointsForPaidFlow = Math.max(0, Math.floor((pkg.price - 10000) / 10));
+  const maxPointsForFreeFlow = Math.max(0, Math.floor(pkg.price / 10));
+  const pointsUsedForFree = Math.min(clampedToBalance, maxPointsForFreeFlow);
+  const canBeFullyPaidByPoints = pointsUsedForFree * 10 >= pkg.price;
+
+  const pointsUsed = canBeFullyPaidByPoints
+    ? pointsUsedForFree
+    : Math.min(clampedToBalance, maxPointsForPaidFlow);
+  const pointsDiscount = pointsUsed * 10;
+  const finalAmount = Math.max(0, pkg.price - pointsDiscount);
+
+  if (finalAmount === 0) {
+    const syntheticOrderId = randomUUID();
+    await spendPointsOnceForOrder({
+      userId: session.user.id,
+      packageId: pkg.id,
+      orderId: syntheticOrderId,
+      pointsUsed,
+    });
+    await ensureEnrolled(session.user.id, pkg.id);
+    return res.json({
+      mode: "points_paid",
+      packageId: pkg.id,
+      status: "paid",
+      pointsUsed,
+      amount: { value: "0.00", currency: "IDR" },
+    });
+  }
+
   const existingPaid = await db
     .select({ id: userPackage.packageId })
     .from(userPackage)
@@ -155,17 +420,35 @@ router.post("/doku/checkout", async (req, res) => {
   }
 
   const orderId = randomUUID();
-  const channel = "VIRTUAL_ACCOUNT_BRI";
+  const activeMethods = await db
+    .select()
+    .from(paymentMethodConfig)
+    .where(and(eq(paymentMethodConfig.provider, "doku"), eq(paymentMethodConfig.isVisible, true)))
+    .orderBy(asc(paymentMethodConfig.sortOrder));
+
+  if (activeMethods.length === 0) {
+    return res.status(400).json({ message: "Tidak ada payment method aktif. Silakan hubungi admin." });
+  }
+
+  const selectedMethod =
+    activeMethods.find((m) => m.id === parsed.data.paymentMethodId) || activeMethods[0]!;
+
+  const selectedConfig = pickMethodConfigByMode(mode, selectedMethod);
+
+  if (!selectedConfig.partnerServiceId || !selectedConfig.customerNoSeed || !selectedConfig.channel) {
+    return res.status(400).json({
+      message: `Konfigurasi payment method ${selectedMethod.displayName} pada mode ${mode} belum lengkap.`,
+    });
+  }
 
   try {
-    const doku = getDokuSnap();
+    const doku = getDokuSnap(mode);
     if (typeof doku?.getTokenB2BStrict === "function") {
       await doku.getTokenB2BStrict();
     }
 
-    // Temporary hardcode for payload parity against Postman success sample.
-    const partnerServiceId = "   13925";
-    const customerNo = "6";
+    const partnerServiceId = formatPartnerServiceId(selectedConfig.partnerServiceId);
+    const customerNo = buildCustomerNoFromConfig(selectedConfig.customerNoSeed);
     const trxId = `MBUMN-VA-${Date.now()}`;
     const expiredDate = toIsoWithOffset(new Date(Date.now() + 30 * 60 * 1000));
     const virtualAccountName = (session.user.name || "").trim();
@@ -178,9 +461,9 @@ router.post("/doku/checkout", async (req, res) => {
       virtualAccountEmail,
       virtualAccountPhone,
       trxId,
-      totalAmountValue: pkg.price.toFixed(2),
+      totalAmountValue: finalAmount.toFixed(2),
       totalAmountCurrency: "IDR",
-      channel,
+      channel: selectedConfig.channel,
       reusableStatus: false,
       virtualAccountTrxType: "C",
       expiredDate,
@@ -212,8 +495,20 @@ router.post("/doku/checkout", async (req, res) => {
       expiredDate;
     const howToPayPage = vaData?.additionalInfo?.howToPayPage || null;
     const howToPayApi = vaData?.additionalInfo?.howToPayApi || null;
-    const amountValue = vaData?.totalAmount?.value || pkg.price.toFixed(2);
+    const amountValue = vaData?.totalAmount?.value || finalAmount.toFixed(2);
     const amountCurrency = vaData?.totalAmount?.currency || "IDR";
+    const responseWithMeta = {
+      ...(response || {}),
+      _checkoutMeta: {
+        baseAmount: pkg.price,
+        finalAmount,
+        pointsUsed,
+        pointsDiscount,
+        paymentMethodId: selectedMethod.id,
+        paymentMethodName: selectedMethod.displayName,
+        gatewayMode: mode,
+      },
+    };
 
     await db.insert(paymentOrder).values({
       id: orderId,
@@ -222,16 +517,18 @@ router.post("/doku/checkout", async (req, res) => {
       provider: "doku",
       externalOrderNo: trxId,
       externalInvoiceNo: String(vaNumber),
-      amount: pkg.price,
+      amount: finalAmount,
       status: "pending",
       paymentUrl: null,
-      rawResponse: JSON.stringify(response || {}),
+      rawResponse: JSON.stringify(responseWithMeta),
+      expiresAt: Number.isNaN(new Date(String(vaExpired)).getTime()) ? null : new Date(String(vaExpired)),
     });
 
     return res.status(201).json({
       orderId,
       packageId: pkg.id,
-      paymentMethod: "VIRTUAL_ACCOUNT_BRI",
+      paymentMethod: selectedMethod.displayName,
+      paymentMethodId: selectedMethod.id,
       vaNumber: String(vaNumber),
       expiredDate: String(vaExpired),
       trxId,
@@ -239,6 +536,8 @@ router.post("/doku/checkout", async (req, res) => {
         value: String(amountValue),
         currency: String(amountCurrency),
       },
+      pointsUsed,
+      pointsDiscount,
       howToPayPage,
       howToPayApi,
       status: "pending",
@@ -299,7 +598,8 @@ router.post("/doku/create-va", async (req, res) => {
   }
 
   try {
-    const doku = getDokuSnap();
+    const mode = await getGatewayMode();
+    const doku = getDokuSnap(mode);
     if (typeof doku?.getTokenB2BStrict === "function") {
       await doku.getTokenB2BStrict();
     }
@@ -371,10 +671,6 @@ router.get("/orders/:id/status", async (req, res) => {
 
   if (order.status === "pending") {
     try {
-      const doku = getDokuSnap();
-      if (typeof doku?.getTokenB2BStrict === "function") {
-        await doku.getTokenB2BStrict();
-      }
       const raw = (() => {
         try {
           return order.rawResponse ? JSON.parse(order.rawResponse) : {};
@@ -382,6 +678,11 @@ router.get("/orders/:id/status", async (req, res) => {
           return {};
         }
       })();
+      const gatewayMode = normalizeMode(raw?._checkoutMeta?.gatewayMode);
+      const doku = getDokuSnap(gatewayMode);
+      if (typeof doku?.getTokenB2BStrict === "function") {
+        await doku.getTokenB2BStrict();
+      }
       const vaData = raw?.virtualAccountData || {};
       const hasVaPayload = Boolean(vaData?.partnerServiceId && vaData?.customerNo && vaData?.virtualAccountNo);
 
@@ -451,6 +752,20 @@ router.get("/orders/:id/status", async (req, res) => {
   }
 
   if (currentStatus === "paid") {
+    const raw = (() => {
+      try {
+        return order.rawResponse ? JSON.parse(order.rawResponse) : {};
+      } catch {
+        return {};
+      }
+    })();
+    const pointsUsed = Number(raw?._checkoutMeta?.pointsUsed || 0);
+    await spendPointsOnceForOrder({
+      userId: session.user.id,
+      packageId: order.packageId,
+      orderId: order.id,
+      pointsUsed,
+    });
     await ensureEnrolled(session.user.id, order.packageId);
   }
 
@@ -535,6 +850,67 @@ router.get("/orders/:id/how-to-pay", async (req, res) => {
   }
 });
 
+router.get("/orders/:id/instruction", async (req, res) => {
+  const session = await getSession(req);
+  if (!session || !session.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const id = req.params.id;
+  const rows = await db
+    .select({
+      id: paymentOrder.id,
+      packageId: paymentOrder.packageId,
+      packageTitle: examPackage.title,
+      amount: paymentOrder.amount,
+      status: paymentOrder.status,
+      trxId: paymentOrder.externalOrderNo,
+      expiresAt: paymentOrder.expiresAt,
+      rawResponse: paymentOrder.rawResponse,
+    })
+    .from(paymentOrder)
+    .leftJoin(examPackage, eq(examPackage.id, paymentOrder.packageId))
+    .where(and(eq(paymentOrder.id, id), eq(paymentOrder.userId, session.user.id)))
+    .limit(1);
+
+  const order = rows[0];
+  if (!order) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+
+  const raw = (() => {
+    try {
+      return order.rawResponse ? JSON.parse(order.rawResponse) : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const vaData = raw?.virtualAccountData || {};
+  const additionalInfo = vaData?.additionalInfo || {};
+  const totalAmount = vaData?.totalAmount || {};
+
+  return res.json({
+    orderId: order.id,
+    packageId: order.packageId,
+    packageTitle: order.packageTitle || "Paket",
+    status: order.status,
+    trxId: order.trxId,
+    paymentMethod: inferPaymentMethod(raw),
+    amount: {
+      value: String(totalAmount?.value || Number(order.amount || 0).toFixed(2)),
+      currency: String(totalAmount?.currency || "IDR"),
+    },
+    vaNumber: String(vaData?.virtualAccountNo || "").replace(/\s+/g, ""),
+    expiredDate:
+      order.expiresAt
+        ? new Date(order.expiresAt).toISOString()
+        : (vaData?.expiredDate ? String(vaData.expiredDate) : null),
+    howToPayPage: additionalInfo?.howToPayPage || null,
+    howToPayApi: additionalInfo?.howToPayApi || null,
+  });
+});
+
 router.post("/doku/webhook", async (req, res) => {
   // Minimal webhook receiver for sandbox observability.
   // Signature verification can be added once header format from merchant setup is finalized.
@@ -570,6 +946,20 @@ router.post("/doku/webhook", async (req, res) => {
     .where(eq(paymentOrder.id, order.id));
 
   if (mapped === "paid") {
+    const raw = (() => {
+      try {
+        return order.rawResponse ? JSON.parse(order.rawResponse) : {};
+      } catch {
+        return {};
+      }
+    })();
+    const pointsUsed = Number(raw?._checkoutMeta?.pointsUsed || 0);
+    await spendPointsOnceForOrder({
+      userId: order.userId,
+      packageId: order.packageId,
+      orderId: order.id,
+      pointsUsed,
+    });
     await ensureEnrolled(order.userId, order.packageId);
   }
 

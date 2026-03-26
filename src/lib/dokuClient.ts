@@ -34,7 +34,7 @@ export const ensureDokuConfig = () => {
   }
 };
 
-let snapSingleton: any | null = null;
+const snapSingletonByMode: Record<string, any> = {};
 
 class SafeSnap extends (getSdk().Snap as any) {
   constructor(...args: any[]) {
@@ -70,8 +70,9 @@ class SafeSnap extends (getSdk().Snap as any) {
 }
 
 // Mirroring sample app flow: create one Snap instance and reuse it.
-export const getDokuSnap = () => {
-  if (snapSingleton) return snapSingleton;
+export const getDokuSnap = (mode: "sandbox" | "production" = (env.DOKU_ENV as any) || "sandbox") => {
+  const resolvedMode = mode === "production" ? "production" : "sandbox";
+  if (snapSingletonByMode[resolvedMode]) return snapSingletonByMode[resolvedMode];
 
   ensureDokuConfig();
   const sdk = getSdk();
@@ -79,8 +80,8 @@ export const getDokuSnap = () => {
     throw new Error("DOKU SDK tidak valid: class Snap tidak ditemukan.");
   }
 
-  snapSingleton = new SafeSnap({
-    isProduction:false,
+  snapSingletonByMode[resolvedMode] = new SafeSnap({
+    isProduction: resolvedMode === "production",
     privateKey: decodePem(env.DOKU_PRIVATE_KEY),
     clientID: String(env.DOKU_CLIENT_ID || "").trim(),
     publicKey: env.DOKU_PUBLIC_KEY ? decodePem(env.DOKU_PUBLIC_KEY) : "",
@@ -89,7 +90,7 @@ export const getDokuSnap = () => {
     secretKey: String(env.DOKU_SECRET_KEY || "").trim(),
   });
 
-  return snapSingleton;
+  return snapSingletonByMode[resolvedMode];
 };
 
 export const buildPaymentJumpAppRequest = (payload: {
