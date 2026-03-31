@@ -6,7 +6,7 @@ import { db } from "../db/index.js";
 import { questionBank, questionUsage, latsolSetQuestion } from "../db/schema.js";
 import { eq, and, sql, or, like } from "drizzle-orm";
 import { env } from "../env.js";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 
 const router = Router();
 
@@ -484,6 +484,26 @@ const pickVlrPattern = (): string => {
   return patterns[Math.floor(Math.random() * patterns.length)];
 };
 
+const deriveContextTitle = (ctx: string): string => {
+  const lines = ctx
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const first = lines[0] || "";
+  const heading = first.match(/^KONTEN\s*(?:[IVXLC]+|\d+)?\s*[:\-]\s*(.+)$/i);
+  if (heading?.[1]) return heading[1].trim();
+  const words = first.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 4);
+  if (words.length) return words.join(" ");
+  return "Konteks Soal";
+};
+
+const buildSharedContextDetail = (ctx: string): string => {
+  const normalized = ctx.trim().toLowerCase();
+  const grp = createHash("sha1").update(normalized).digest("hex").slice(0, 10).toUpperCase();
+  const title = deriveContextTitle(ctx);
+  return `AI Shared Context | KONTEN: ${title} | GRP:${grp}`;
+};
+
 const generateSchema = z.object({
   category: z.enum(["TKD", "AKHLAK"]).default("TKD"),
   subcategory: z.enum([
@@ -500,7 +520,10 @@ const generateSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   usageType: z.enum(["practice", "tryout"]).default("practice"),
   save: z.boolean().optional().default(true),
-  validate: z.boolean().optional().default(true)
+  validate: z.boolean().optional().default(true),
+  sharedContext: z.boolean().optional().default(false),
+  contextText: z.string().optional(),
+  usedStatements: z.array(z.string()).optional().default([])
 });
 
 const saveSchema = z.object({
@@ -521,7 +544,9 @@ const saveSchema = z.object({
   question: z.string().min(1),
   options: z.array(z.string().min(1)),
   correctAnswer: z.string().min(1),
-  explanation: z.string().min(1)
+  explanation: z.string().min(1),
+  sourceDetail: z.string().optional().default(""),
+  sharedContext: z.boolean().optional().default(false)
 });
 
 const validateSchema = z.object({
@@ -557,7 +582,14 @@ router.post("/", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ message: "Invalid body", issues: parsed.error.issues });
   }
-  const { category, subcategory, difficulty, usageType, question, options, correctAnswer, explanation } = parsed.data;
+  const { category, subcategory, difficulty, usageType, question, options, correctAnswer, explanation, sourceDetail, sharedContext } = parsed.data;
+  let derivedSourceDetail = sourceDetail || "";
+  if (!derivedSourceDetail && sharedContext && subcategory === "Verbal Logical Reasoning") {
+    const [ctx] = String(question || "").split(/\n\n+/);
+    if ((ctx || "").trim()) {
+      derivedSourceDetail = buildSharedContextDetail((ctx || "").trim());
+    }
+  }
   const id = randomUUID();
   await db.insert(questionBank).values({
     id,
@@ -570,6 +602,7 @@ router.post("/", async (req, res) => {
     correctAnswer,
     explanation,
     source: "ai",
+    sourceDetail: derivedSourceDetail,
     status: "draft"
   });
   return res.status(201).json({ id });
@@ -693,6 +726,7 @@ router.post("/autofix", async (req, res) => {
       correctAnswer: fixed.correctAnswer,
       explanation: fixed.explanation,
       source: "ai",
+      sourceDetail: "",
       status: "draft"
     });
   }
@@ -721,7 +755,7 @@ router.post("/generate", async (req, res) => {
     return res.status(500).json({ message: "OPENAI_API_KEY/OPENAI_MODEL not configured." });
   }
 
-  const { category, subcategory, difficulty, usageType, save, validate } = parsed.data;
+  const { category, subcategory, difficulty, usageType, save, validate, sharedContext, contextText, usedStatements } = parsed.data;
   const blueprint = blueprints[subcategory];
   if (!blueprint) {
     return res.status(400).json({ message: "Unsupported subcategory." });
@@ -804,6 +838,24 @@ router.post("/generate", async (req, res) => {
       "Jika pola wajib bukan kuantitatif, DILARANG menggunakan data hitung/himpunan sebagai inti soal.",
       "Pastikan pola soal berbeda dari dua contoh teratas."
     );
+    if (sharedContext && (contextText || "").trim()) {
+      const fixedContext = (contextText || "").trim();
+      userLines.push(
+        "",
+        "MODE KHUSUS: SHARED CONTEXT",
+        "Gunakan context_text berikut apa adanya (jangan ubah fakta, angka, maupun entitas):",
+        fixedContext,
+        "",
+        "Buat statement_to_judge baru yang berbeda dari statement sebelumnya.",
+        "statement_to_judge wajib bisa dinilai dengan opsi A/B/C (bukan opini)."
+      );
+      if (Array.isArray(usedStatements) && usedStatements.length > 0) {
+        userLines.push(
+          "Dilarang mengulang statement berikut:",
+          ...usedStatements.map((s, i) => `${i + 1}. ${s}`)
+        );
+      }
+    }
   }
   const user = userLines.join("\n");
 
@@ -1035,6 +1087,13 @@ router.post("/generate", async (req, res) => {
   const aiValid =
     validation ? validation.is_valid && validation.verdict === "valid" : true;
 
+  const generatedSourceDetail =
+    subcategory === "Verbal Logical Reasoning" &&
+    sharedContext &&
+    (parsedOut.context_text || "").trim()
+      ? buildSharedContextDetail((parsedOut.context_text || "").trim())
+      : "";
+
   let savedId: string | null = null;
   if (save && aiValid) {
     savedId = randomUUID();
@@ -1049,6 +1108,7 @@ router.post("/generate", async (req, res) => {
       correctAnswer: parsedOut.correctAnswer,
       explanation: parsedOut.explanation,
       source: "ai",
+      sourceDetail: generatedSourceDetail,
       status: "draft"
     });
   }
@@ -1056,6 +1116,7 @@ router.post("/generate", async (req, res) => {
   return res.json({
     ...parsedOut,
     id: savedId,
+    sourceDetail: generatedSourceDetail,
     isValid: aiValid,
     validationError: aiValid ? null : (validation?.issues?.[0]?.message || "AI validator flagged issues."),
     validationDetail: validation ?? null
@@ -1069,6 +1130,9 @@ router.get("/", async (req, res) => {
   const difficulty = (req.query.difficulty || "").toString().trim();
   const status = (req.query.status || "").toString().trim();
   const usage = (req.query.usage || "").toString().trim();
+  const source = (req.query.source || "").toString().trim();
+  const sourceDetail = (req.query.sourceDetail || "").toString().trim();
+  const sourceDetailPrefix = (req.query.sourceDetailPrefix || "").toString().trim();
   const page = Math.max(1, Number(req.query.page || 1));
   const limit = Math.min(50, Math.max(5, Number(req.query.limit || 10)));
   const offset = (page - 1) * limit;
@@ -1087,6 +1151,9 @@ router.get("/", async (req, res) => {
   if (subcategory) whereParts.push(eq(questionBank.subcategory, subcategory));
   if (difficulty) whereParts.push(eq(questionBank.difficulty, difficulty));
   if (status) whereParts.push(eq(questionBank.status, status));
+  if (source) whereParts.push(eq(questionBank.source, source));
+  if (sourceDetail) whereParts.push(eq(questionBank.sourceDetail, sourceDetail));
+  if (sourceDetailPrefix) whereParts.push(like(questionBank.sourceDetail, `${sourceDetailPrefix}%`));
 
   const whereClause = whereParts.length ? and(...whereParts) : undefined;
 
@@ -1100,6 +1167,7 @@ router.get("/", async (req, res) => {
       question: questionBank.question,
       usageType: questionBank.usageType,
       source: questionBank.source,
+      sourceDetail: questionBank.sourceDetail,
       createdAt: questionBank.createdAt,
       usedCount: sql<number>`count(${questionUsage.id})`,
       setCount: sql<number>`count(${latsolSetQuestion.id})`,
@@ -1172,6 +1240,7 @@ router.get("/:id", async (req, res) => {
       explanation: questionBank.explanation,
       status: questionBank.status,
       source: questionBank.source,
+      sourceDetail: questionBank.sourceDetail,
       createdAt: questionBank.createdAt,
       updatedAt: questionBank.updatedAt,
     })
@@ -1199,6 +1268,7 @@ router.patch("/:id", async (req, res) => {
     explanation: z.string().optional(),
     status: z.enum(["draft", "approved", "archived"]).optional(),
     source: z.string().optional(),
+    sourceDetail: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body || {});
   if (!parsed.success) {
@@ -1238,6 +1308,7 @@ router.patch("/:id", async (req, res) => {
       explanation: questionBank.explanation,
       status: questionBank.status,
       source: questionBank.source,
+      sourceDetail: questionBank.sourceDetail,
       createdAt: questionBank.createdAt,
       updatedAt: questionBank.updatedAt,
     })

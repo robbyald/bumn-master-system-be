@@ -433,6 +433,7 @@ router.post("/", async (req, res) => {
         correctAnswer,
         explanation,
         source: "ai",
+        sourceDetail: "",
         status: "draft"
     });
     return res.status(201).json({ id });
@@ -539,6 +540,7 @@ router.post("/autofix", async (req, res) => {
             correctAnswer: fixed.correctAnswer,
             explanation: fixed.explanation,
             source: "ai",
+            sourceDetail: "",
             status: "draft"
         });
     }
@@ -833,6 +835,7 @@ router.post("/generate", async (req, res) => {
             correctAnswer: parsedOut.correctAnswer,
             explanation: parsedOut.explanation,
             source: "ai",
+            sourceDetail: "",
             status: "draft"
         });
     }
@@ -851,6 +854,7 @@ router.get("/", async (req, res) => {
     const difficulty = (req.query.difficulty || "").toString().trim();
     const status = (req.query.status || "").toString().trim();
     const usage = (req.query.usage || "").toString().trim();
+    const sourceDetail = (req.query.sourceDetail || "").toString().trim();
     const page = Math.max(1, Number(req.query.page || 1));
     const limit = Math.min(50, Math.max(5, Number(req.query.limit || 10)));
     const offset = (page - 1) * limit;
@@ -867,6 +871,8 @@ router.get("/", async (req, res) => {
         whereParts.push(eq(questionBank.difficulty, difficulty));
     if (status)
         whereParts.push(eq(questionBank.status, status));
+    if (sourceDetail)
+        whereParts.push(eq(questionBank.sourceDetail, sourceDetail));
     const whereClause = whereParts.length ? and(...whereParts) : undefined;
     const rows = await db
         .select({
@@ -878,6 +884,7 @@ router.get("/", async (req, res) => {
         question: questionBank.question,
         usageType: questionBank.usageType,
         source: questionBank.source,
+        sourceDetail: questionBank.sourceDetail,
         createdAt: questionBank.createdAt,
         usedCount: sql `count(${questionUsage.id})`,
         setCount: sql `count(${latsolSetQuestion.id})`,
@@ -941,6 +948,7 @@ router.get("/:id", async (req, res) => {
         explanation: questionBank.explanation,
         status: questionBank.status,
         source: questionBank.source,
+        sourceDetail: questionBank.sourceDetail,
         createdAt: questionBank.createdAt,
         updatedAt: questionBank.updatedAt,
     })
@@ -965,6 +973,7 @@ router.patch("/:id", async (req, res) => {
         explanation: z.string().optional(),
         status: z.enum(["draft", "approved", "archived"]).optional(),
         source: z.string().optional(),
+        sourceDetail: z.string().optional(),
     });
     const parsed = schema.safeParse(req.body || {});
     if (!parsed.success) {
@@ -1001,6 +1010,7 @@ router.patch("/:id", async (req, res) => {
         explanation: questionBank.explanation,
         status: questionBank.status,
         source: questionBank.source,
+        sourceDetail: questionBank.sourceDetail,
         createdAt: questionBank.createdAt,
         updatedAt: questionBank.updatedAt,
     })

@@ -692,9 +692,6 @@ router.get("/orders/:id/status", async (req, res) => {
           customerNo: String(vaData.customerNo),
           virtualAccountNo: String(vaData.virtualAccountNo),
           virtualAccountName: vaData.virtualAccountName,
-          inquiryRequestId: null as any,
-          paymentRequestId: null as any,
-          additionalInfo: "",
         });
         console.log("[DOKU CHECK-STATUS-VA REQUEST]", {
           partnerServiceId: statusVaPayload.partnerServiceId,

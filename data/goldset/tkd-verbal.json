@@ -898,5 +898,176 @@
     "source": "goldset",
     "status": "approved",
     "pattern": "urutan"
+  },
+  {
+    "id": "Q-TKD-VLR-0051",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN II: PANEN BUAH\nPada hari Minggu pagi, Toni dan Budi pergi ke kebun buah di pinggiran desa. Mereka berangkat pukul 06.00 WIB dengan berjalan kaki. Memanen buah sudah menjadi rutinitas mereka sejak kecil setiap kali musim panen tiba. Diketahui juga bahwa:\n• Kebun yang dikunjungi terdapat pohon apel, jeruk, mangga, dan alpukat.\n• Budi membawa keranjang yang lebih besar daripada Toni.\n• Mereka memanen selama tiga jam hingga matahari semakin terik.\n• Toni secara konsisten memetik paling sedikit empat buah apel setiap lima belas menit.\n• Budi berhasil memetik lima belas buah jeruk.\n• Toni dan Budi membawa pulang 70 buah apel dan 40 buah jeruk.\n\nToni dan Budi berhasil memetik lima buah mangga selama di kebun.",
+    "options": [
+      "Simpulan adalah salah",
+      "Simpulan adalah benar",
+      "Tidak dapat disimpulkan"
+    ],
+    "correctAnswer": "C",
+    "explanation": "Informasi yang tersedia hanya memastikan jumlah apel dan jeruk. Tidak ada data pasti mengenai jumlah mangga yang dipetik, sehingga pernyataan bahwa mereka memetik lima buah mangga tidak bisa dipastikan benar ataupun salah.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "kuantitatif",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: PANEN BUAH | GRP:RBB2025PB01"
+  },
+  {
+    "id": "Q-TKD-VLR-0052",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN II: PANEN BUAH\nPada hari Minggu pagi, Toni dan Budi pergi ke kebun buah di pinggiran desa. Mereka berangkat pukul 06.00 WIB dengan berjalan kaki. Memanen buah sudah menjadi rutinitas mereka sejak kecil setiap kali musim panen tiba. Diketahui juga bahwa:\n• Kebun yang dikunjungi terdapat pohon apel, jeruk, mangga, dan alpukat.\n• Budi membawa keranjang yang lebih besar daripada Toni.\n• Mereka memanen selama tiga jam hingga matahari semakin terik.\n• Toni secara konsisten memetik paling sedikit empat buah apel setiap lima belas menit.\n• Budi berhasil memetik lima belas buah jeruk.\n• Toni dan Budi membawa pulang 70 buah apel dan 40 buah jeruk.\n\nToni berhasil memetik minimal 48 buah apel selama tiga jam memanen.",
+    "options": [
+      "Simpulan adalah salah",
+      "Tidak dapat disimpulkan",
+      "Simpulan adalah benar"
+    ],
+    "correctAnswer": "C",
+    "explanation": "Selama tiga jam terdapat 12 interval lima belas menit. Jika Toni memetik paling sedikit 4 apel setiap interval, maka total minimal apel yang dipetik Toni adalah 12 × 4 = 48 apel. Karena pernyataan menyebut minimal 48 apel, simpulan adalah benar.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "kuantitatif",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: PANEN BUAH | GRP:RBB2025PB01"
+  },
+  {
+    "id": "Q-TKD-VLR-0053",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN 1 : MAKAN SIANG\nTiko, Nia, dan Zul mendaftar magang pada sebuah perusahaan yang sama. Perusahaan menempatkan mereka pada divisi yang berbeda dengan jadwal masuk yang bervariasi. Mereka menyepakati jadwal untuk makan siang bersama tiap minggunya minimal sekali dalam seminggu. Diketahui bahwa:\n• Karyawan magang mendapatkan jadwal work from home (WFH) satu hari tiap minggunya.\n• Nia mendapat jadwal WFH di hari Selasa dan Tiko di hari Kamis.\n• Tidak ada yang melakukan WFH di hari Rabu.\n• Hari Senin bukan merupakan jadwal WFH Zul.\n• Divisi Zul melakukan rapat tiap hari Kamis di jam makan siang.\n• Jika salah satu dari mereka tidak dapat ikut, mereka tidak akan makan bersama.\n\nMereka dapat melakukan makan siang bersama di hari Kamis.",
+    "options": [
+      "Simpulan adalah benar",
+      "Tidak dapat disimpulkan",
+      "Simpulan adalah salah"
+    ],
+    "correctAnswer": "C",
+    "explanation": "Pada hari Kamis, Tiko berstatus WFH dan Zul memiliki rapat pada jam makan siang. Karena jika salah satu tidak dapat ikut maka mereka tidak akan makan bersama, maka pada hari Kamis mereka tidak dapat makan siang bersama. Simpulan adalah salah.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "penjadwalan",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: MAKAN SIANG | GRP:RBB2025MS01"
+  },
+  {
+    "id": "Q-TKD-VLR-0054",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN 1 : MAKAN SIANG\nTiko, Nia, dan Zul mendaftar magang pada sebuah perusahaan yang sama. Perusahaan menempatkan mereka pada divisi yang berbeda dengan jadwal masuk yang bervariasi. Mereka menyepakati jadwal untuk makan siang bersama tiap minggunya minimal sekali dalam seminggu. Diketahui bahwa:\n• Karyawan magang mendapatkan jadwal work from home (WFH) satu hari tiap minggunya.\n• Nia mendapat jadwal WFH di hari Selasa dan Tiko di hari Kamis.\n• Tidak ada yang melakukan WFH di hari Rabu.\n• Hari Senin bukan merupakan jadwal WFH Zul.\n• Divisi Zul melakukan rapat tiap hari Kamis di jam makan siang.\n• Jika salah satu dari mereka tidak dapat ikut, mereka tidak akan makan bersama.\n\nDivisi Nia melaksanakan rapat di hari Rabu.",
+    "options": [
+      "Simpulan adalah salah",
+      "Tidak dapat disimpulkan",
+      "Simpulan adalah benar"
+    ],
+    "correctAnswer": "B",
+    "explanation": "Informasi pada konteks hanya menyebutkan jadwal rapat untuk divisi Zul pada hari Kamis. Tidak ada informasi eksplisit mengenai jadwal rapat divisi Nia, termasuk pada hari Rabu. Karena data tidak cukup, simpulan tidak dapat disimpulkan.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "penjadwalan",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: MAKAN SIANG | GRP:RBB2025MS01"
+  },
+  {
+    "id": "Q-TKD-VLR-0055",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN 1 : MAKAN SIANG\nTiko, Nia, dan Zul mendaftar magang pada sebuah perusahaan yang sama. Perusahaan menempatkan mereka pada divisi yang berbeda dengan jadwal masuk yang bervariasi. Mereka menyepakati jadwal untuk makan siang bersama tiap minggunya minimal sekali dalam seminggu. Diketahui bahwa:\n• Karyawan magang mendapatkan jadwal work from home (WFH) satu hari tiap minggunya.\n• Nia mendapat jadwal WFH di hari Selasa dan Tiko di hari Kamis.\n• Tidak ada yang melakukan WFH di hari Rabu.\n• Hari Senin bukan merupakan jadwal WFH Zul.\n• Divisi Zul melakukan rapat tiap hari Kamis di jam makan siang.\n• Jika salah satu dari mereka tidak dapat ikut, mereka tidak akan makan bersama.\n\nPada hari Selasa, Zul juga mendapatkan jadwal WFH seperti Nia.",
+    "options": [
+      "Simpulan adalah benar",
+      "Tidak dapat disimpulkan",
+      "Simpulan adalah salah"
+    ],
+    "correctAnswer": "B",
+    "explanation": "Konteks hanya menetapkan jadwal WFH Nia (Selasa), Tiko (Kamis), tidak ada WFH di Rabu, dan Senin bukan WFH Zul. Tidak ada informasi eksplisit apakah WFH Zul jatuh pada Selasa atau hari lain. Karena data tidak cukup, simpulan tidak dapat disimpulkan.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "penjadwalan",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: MAKAN SIANG | GRP:RBB2025MS01"
+  },
+  {
+    "id": "Q-TKD-VLR-0056",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN 1 : MAKAN SIANG\nTiko, Nia, dan Zul mendaftar magang pada sebuah perusahaan yang sama. Perusahaan menempatkan mereka pada divisi yang berbeda dengan jadwal masuk yang bervariasi. Mereka menyepakati jadwal untuk makan siang bersama tiap minggunya minimal sekali dalam seminggu. Diketahui bahwa:\n• Karyawan magang mendapatkan jadwal work from home (WFH) satu hari tiap minggunya.\n• Nia mendapat jadwal WFH di hari Selasa dan Tiko di hari Kamis.\n• Tidak ada yang melakukan WFH di hari Rabu.\n• Hari Senin bukan merupakan jadwal WFH Zul.\n• Divisi Zul melakukan rapat tiap hari Kamis di jam makan siang.\n• Jika salah satu dari mereka tidak dapat ikut, mereka tidak akan makan bersama.\n\nTiko, Nia, dan Zul dapat melakukan makan siang bersama di hari Rabu.",
+    "options": [
+      "Simpulan adalah benar",
+      "Simpulan adalah salah",
+      "Tidak dapat disimpulkan"
+    ],
+    "correctAnswer": "A",
+    "explanation": "Pada hari Rabu tidak ada yang WFH, sehingga Tiko, Nia, dan Zul sama-sama berada di kantor. Rapat Zul yang mengganggu makan siang hanya disebut terjadi pada hari Kamis. Dengan informasi yang ada, mereka dapat makan siang bersama pada hari Rabu. Simpulan adalah benar.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "penjadwalan",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: MAKAN SIANG | GRP:RBB2025MS01"
+  },
+  {
+    "id": "Q-TKD-VLR-0057",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN II: PANEN BUAH\nPada hari Minggu pagi, Toni dan Budi pergi ke kebun buah di pinggiran desa. Mereka berangkat pukul 06.00 WIB dengan berjalan kaki. Memanen buah sudah menjadi rutinitas mereka sejak kecil setiap kali musim panen tiba. Diketahui juga bahwa:\n• Kebun yang dikunjungi terdapat pohon apel, jeruk, mangga, dan alpukat.\n• Budi membawa keranjang yang lebih besar daripada Toni.\n• Mereka memanen selama tiga jam hingga matahari semakin terik.\n• Toni secara konsisten memetik paling sedikit empat buah apel setiap lima belas menit.\n• Budi berhasil memetik lima belas buah jeruk.\n• Toni dan Budi membawa pulang 70 buah apel dan 40 buah jeruk.\n\nBudi telah mengisi penuh keranjangnya dengan buah yang dipetik.",
+    "options": [
+      "Tidak dapat disimpulkan",
+      "Simpulan adalah salah",
+      "Simpulan adalah benar"
+    ],
+    "correctAnswer": "A",
+    "explanation": "Konteks hanya menyebut bahwa keranjang Budi lebih besar daripada Toni, tetapi tidak ada informasi kapasitas keranjang atau jumlah pasti buah yang dipetik Budi secara total terhadap kapasitas tersebut. Karena data kapasitas tidak tersedia, pernyataan bahwa keranjang Budi sudah penuh tidak dapat disimpulkan.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "kuantitatif",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: PANEN BUAH | GRP:RBB2025PB01"
+  },
+  {
+    "id": "Q-TKD-VLR-0058",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN II: PANEN BUAH\nPada hari Minggu pagi, Toni dan Budi pergi ke kebun buah di pinggiran desa. Mereka berangkat pukul 06.00 WIB dengan berjalan kaki. Memanen buah sudah menjadi rutinitas mereka sejak kecil setiap kali musim panen tiba. Diketahui juga bahwa:\n• Kebun yang dikunjungi terdapat pohon apel, jeruk, mangga, dan alpukat.\n• Budi membawa keranjang yang lebih besar daripada Toni.\n• Mereka memanen selama tiga jam hingga matahari semakin terik.\n• Toni secara konsisten memetik paling sedikit empat buah apel setiap lima belas menit.\n• Budi berhasil memetik lima belas buah jeruk.\n• Toni dan Budi membawa pulang 70 buah apel dan 40 buah jeruk.\n\nBudi memetik buah lebih banyak daripada Toni.",
+    "options": [
+      "Simpulan adalah salah",
+      "Tidak dapat disimpulkan",
+      "Simpulan adalah benar"
+    ],
+    "correctAnswer": "B",
+    "explanation": "Data yang tersedia belum cukup untuk membandingkan total seluruh buah yang dipetik masing-masing secara pasti. Informasi rinci jumlah mangga dan alpukat per orang tidak diberikan, sehingga tidak bisa dipastikan apakah total Budi lebih banyak daripada Toni. Simpulan tidak dapat disimpulkan.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "kuantitatif",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: PANEN BUAH | GRP:RBB2025PB01"
+  },
+  {
+    "id": "Q-TKD-VLR-0059",
+    "category": "TKD",
+    "subcategory": "Verbal Logical Reasoning",
+    "difficulty": "hard",
+    "usageType": "practice",
+    "question": "KONTEN II: PANEN BUAH\nPada hari Minggu pagi, Toni dan Budi pergi ke kebun buah di pinggiran desa. Mereka berangkat pukul 06.00 WIB dengan berjalan kaki. Memanen buah sudah menjadi rutinitas mereka sejak kecil setiap kali musim panen tiba. Diketahui juga bahwa:\n• Kebun yang dikunjungi terdapat pohon apel, jeruk, mangga, dan alpukat.\n• Budi membawa keranjang yang lebih besar daripada Toni.\n• Mereka memanen selama tiga jam hingga matahari semakin terik.\n• Toni secara konsisten memetik paling sedikit empat buah apel setiap lima belas menit.\n• Budi berhasil memetik lima belas buah jeruk.\n• Toni dan Budi membawa pulang 70 buah apel dan 40 buah jeruk.\n\nToni tidak memetik buah jeruk.",
+    "options": [
+      "Tidak dapat disimpulkan",
+      "Simpulan adalah benar",
+      "Simpulan adalah salah"
+    ],
+    "correctAnswer": "C",
+    "explanation": "Jumlah jeruk yang dibawa pulang bersama adalah 40 buah, sedangkan Budi hanya memetik 15 buah jeruk. Dengan demikian sisa jeruk dipetik oleh Toni, sehingga pernyataan bahwa Toni tidak memetik jeruk adalah salah.",
+    "source": "goldset",
+    "status": "approved",
+    "pattern": "kuantitatif",
+    "sourceDetail": "RBB BUMN 2025 (Asli) | KONTEN: PANEN BUAH | GRP:RBB2025PB01"
   }
 ]

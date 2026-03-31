@@ -14,6 +14,7 @@ type GoldQuestion = {
   correctAnswer: string | null;
   explanation: string | null;
   source?: string;
+  sourceDetail?: string;
   status?: string;
 };
 
@@ -51,6 +52,7 @@ if (items.length === 0) {
     correctAnswer: q.correctAnswer ?? null,
     explanation: q.explanation ?? null,
   source: q.source ?? "goldset",
+  sourceDetail: q.sourceDetail ?? "",
   status: q.status ?? "draft"
 }));
 
@@ -68,6 +70,7 @@ await db
       correctAnswer: questionBank.correctAnswer,
       explanation: questionBank.explanation,
       source: questionBank.source,
+      sourceDetail: questionBank.sourceDetail,
       status: questionBank.status
     }
   });
