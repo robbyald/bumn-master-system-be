@@ -201,3 +201,13 @@ try {
 } catch {
   // ignore if table does not exist yet
 }
+
+try {
+  const cols = sqlite.prepare("PRAGMA table_info('question_bank')").all() as Array<{ name: string }>;
+  const hasSourceDetail = cols.some((c) => c.name === "source_detail");
+  if (!hasSourceDetail) {
+    sqlite.exec("ALTER TABLE question_bank ADD COLUMN source_detail TEXT NOT NULL DEFAULT '';");
+  }
+} catch {
+  // ignore if table does not exist yet
+}

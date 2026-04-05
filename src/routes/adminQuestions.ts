@@ -1,14 +1,47 @@
 import { Router } from "express";
 import { z } from "zod";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, mkdirSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
+import { resolve, join, extname } from "node:path";
 import { db } from "../db/index.js";
 import { questionBank, questionUsage, latsolSetQuestion } from "../db/schema.js";
 import { eq, and, sql, or, like } from "drizzle-orm";
 import { env } from "../env.js";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
+import multer from "multer";
 
 const router = Router();
+
+const questionImageDir = join(process.cwd(), "uploads", "question-bank");
+try {
+  mkdirSync(questionImageDir, { recursive: true });
+} catch {
+  // ignore
+}
+
+const questionImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, questionImageDir),
+    filename: (_req, file, cb) => {
+      const safeExt = extname(file.originalname || "").toLowerCase() || ".png";
+      cb(null, `question-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${safeExt}`);
+    },
+  }),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
+
+const ocrUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+const mimeFromExt = (ext: string) => {
+  const e = ext.toLowerCase();
+  if (e === ".png") return "image/png";
+  if (e === ".jpg" || e === ".jpeg") return "image/jpeg";
+  if (e === ".webp") return "image/webp";
+  return "image/png";
+};
 
 
 type ValidationIssue = { code: string; message: string };
@@ -484,6 +517,51 @@ const pickVlrPattern = (): string => {
   return patterns[Math.floor(Math.random() * patterns.length)];
 };
 
+const deriveContextTitle = (ctx: string): string => {
+  const lines = ctx
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const first = lines[0] || "";
+  const heading = first.match(/^KONTEN\s*(?:[IVXLC]+|\d+)?\s*[:\-]\s*(.+)$/i);
+  if (heading?.[1]) return heading[1].trim();
+  const words = first.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 4);
+  if (words.length) return words.join(" ");
+  return "Konteks Soal";
+};
+
+const buildSharedContextDetail = (ctx: string): string => {
+  const normalized = ctx.trim().toLowerCase();
+  const grp = createHash("sha1").update(normalized).digest("hex").slice(0, 10).toUpperCase();
+  const title = deriveContextTitle(ctx);
+  return `AI Shared Context | KONTEN: ${title} | GRP:${grp}`;
+};
+
+const deriveOcrContextTitle = (question: string): string | null => {
+  const text = String(question || "");
+  const heading = text.match(/^KONTEN\s*(?:[IVXLC]+|\d+)?\s*[:\-]\s*(.+)$/im);
+  if (!heading?.[1]) return null;
+  return heading[1].trim() || null;
+};
+
+const buildOcrGroupedDetail = (title: string): string => {
+  const base = title.trim().toLowerCase();
+  const grp = createHash("sha1").update(`ocr|${base}`).digest("hex").slice(0, 10).toUpperCase();
+  return `OCR Import | KONTEN: ${title} | GRP:${grp}`;
+};
+
+const ensureOcrSourceDetailGroup = (sourceDetail: string, question: string): string => {
+  const raw = String(sourceDetail || "").trim();
+  if (!raw) return raw;
+  if (/GRP:[A-Z0-9]+/i.test(raw)) return raw;
+  const title = deriveOcrContextTitle(question);
+  if (!title) return raw;
+  if (/OCR Import/i.test(raw)) {
+    return `${raw} | KONTEN: ${title} | GRP:${createHash("sha1").update(`ocr|${title.trim().toLowerCase()}`).digest("hex").slice(0, 10).toUpperCase()}`;
+  }
+  return raw;
+};
+
 const generateSchema = z.object({
   category: z.enum(["TKD", "AKHLAK"]).default("TKD"),
   subcategory: z.enum([
@@ -500,7 +578,10 @@ const generateSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   usageType: z.enum(["practice", "tryout"]).default("practice"),
   save: z.boolean().optional().default(true),
-  validate: z.boolean().optional().default(true)
+  validate: z.boolean().optional().default(true),
+  sharedContext: z.boolean().optional().default(false),
+  contextText: z.string().optional(),
+  usedStatements: z.array(z.string()).optional().default([])
 });
 
 const saveSchema = z.object({
@@ -521,8 +602,58 @@ const saveSchema = z.object({
   question: z.string().min(1),
   options: z.array(z.string().min(1)),
   correctAnswer: z.string().min(1),
-  explanation: z.string().min(1)
+  explanation: z.string().min(1),
+  source: z.enum(["ai", "ocr"]).optional().default("ai"),
+  sourceDetail: z.string().optional().default(""),
+  imageUrl: z.string().optional(),
+  imagePosition: z.enum(["top", "bottom"]).optional().default("bottom"),
+  sharedContext: z.boolean().optional().default(false)
 });
+
+const appendImageMeta = (sourceDetail: string, imageUrl?: string, imagePosition: "top" | "bottom" = "bottom") => {
+  const clean = String(sourceDetail || "")
+    .replace(/\s*\|\s*IMG:[^|]+/gi, "")
+    .replace(/\s*\|\s*IMG_POS:[^|]+/gi, "")
+    .trim();
+  if (!imageUrl) return clean;
+  const posTag = `IMG_POS:${imagePosition}`;
+  return clean ? `${clean} | IMG:${imageUrl} | ${posTag}` : `IMG:${imageUrl} | ${posTag}`;
+};
+
+const appendImageToQuestion = (question: string, imageUrl?: string) => {
+  const clean = String(question || "").replace(/\n{2,}\[IMAGE\]\s+\S+\s*$/i, "").trim();
+  if (!imageUrl) return clean;
+  return clean;
+};
+
+const prettifyOcrQuestion = (raw: string) => {
+  let text = String(raw || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  // Split inline dash facts into separate lines to improve readability.
+  text = text.replace(/\s-\s+/g, "\n- ");
+  // Convert dash list markers to bullet markers.
+  text = text.replace(/(^|\n)-\s+/g, "$1• ");
+  // Collapse excessive blank lines.
+  text = text.replace(/\n{3,}/g, "\n\n");
+  return text.trim();
+};
+
+const extractOptionsFromQuestionText = (rawQuestion: string) => {
+  const lines = String(rawQuestion || "").split("\n");
+  const options: string[] = [];
+  const kept: string[] = [];
+  for (const line of lines) {
+    const m = line.trim().match(/^([A-Ea-e])\.\s*(.+)$/);
+    if (m?.[2]) {
+      options.push(String(m[2]).trim());
+    } else {
+      kept.push(line);
+    }
+  }
+  return {
+    question: kept.join("\n").trim(),
+    options,
+  };
+};
 
 const validateSchema = z.object({
   category: z.enum(["TKD", "AKHLAK"]),
@@ -557,7 +688,39 @@ router.post("/", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ message: "Invalid body", issues: parsed.error.issues });
   }
-  const { category, subcategory, difficulty, usageType, question, options, correctAnswer, explanation } = parsed.data;
+  const {
+    category,
+    subcategory,
+    difficulty,
+    usageType,
+    question,
+    options,
+    correctAnswer,
+    explanation,
+    source,
+    sourceDetail,
+    imageUrl,
+    imagePosition,
+    sharedContext,
+  } = parsed.data;
+  let derivedSourceDetail = sourceDetail || "";
+  if (!derivedSourceDetail && sharedContext && subcategory === "Verbal Logical Reasoning") {
+    const [ctx] = String(question || "").split(/\n\n+/);
+    if ((ctx || "").trim()) {
+      derivedSourceDetail = buildSharedContextDetail((ctx || "").trim());
+    }
+  }
+  if (source === "ocr") {
+    if (!derivedSourceDetail) {
+      const title = deriveOcrContextTitle(question);
+      derivedSourceDetail = title ? buildOcrGroupedDetail(title) : "OCR Import";
+    } else {
+      derivedSourceDetail = ensureOcrSourceDetailGroup(derivedSourceDetail, question);
+    }
+  }
+  derivedSourceDetail = appendImageMeta(derivedSourceDetail, imageUrl, imagePosition);
+  const baseQuestion = source === "ocr" ? prettifyOcrQuestion(question) : question;
+  const finalQuestion = appendImageToQuestion(baseQuestion, imageUrl);
   const id = randomUUID();
   await db.insert(questionBank).values({
     id,
@@ -565,14 +728,343 @@ router.post("/", async (req, res) => {
     subcategory,
     difficulty,
     usageType,
-    question,
+    question: finalQuestion,
     options: JSON.stringify(options),
     correctAnswer,
     explanation,
-    source: "ai",
+    source: source || "ai",
+    sourceDetail: derivedSourceDetail,
     status: "draft"
   });
   return res.status(201).json({ id });
+});
+
+router.post("/upload-image", questionImageUpload.single("image"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "Image file is required." });
+  }
+  const imageUrl = `/uploads/question-bank/${req.file.filename}`;
+  return res.json({ imageUrl });
+});
+
+router.post("/enhance-image", async (req, res) => {
+  const imageUrl = String(req.body?.imageUrl || "").trim();
+  if (!imageUrl || !imageUrl.startsWith("/uploads/question-bank/")) {
+    return res.status(400).json({ message: "imageUrl tidak valid." });
+  }
+  if (!env.OPENAI_API_KEY) {
+    return res.status(500).json({ message: "OPENAI_API_KEY belum di-set." });
+  }
+
+  try {
+    const filePath = resolve(process.cwd(), `.${imageUrl}`);
+    const ext = extname(filePath) || ".png";
+    const mime = mimeFromExt(ext);
+    const raw = await readFile(filePath);
+    const runEdit = async (model: string) => {
+      const form = new FormData();
+      form.append("model", model);
+      form.append(
+        "prompt",
+        "Perjelas gambar soal agar teks/angka lebih tajam dan terbaca. Pertahankan isi, layout, urutan angka, opsi, dan struktur asli. Jangan menambah atau menghapus elemen.",
+      );
+      form.append("size", "1024x1024");
+      form.append("response_format", "b64_json");
+      form.append("image", new Blob([raw], { type: mime }), `input${ext}`);
+
+      const aiRes = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        },
+        body: form,
+      });
+      const aiBody = (await aiRes.json().catch(() => ({}))) as any;
+      return { ok: aiRes.ok, body: aiBody };
+    };
+
+    const preferredModel = String(env.OPENAI_IMAGE_MODEL || "dall-e-2").trim();
+    let modelUsed = preferredModel;
+    let result = await runEdit(preferredModel);
+
+    const isInvalidModel = !result.ok && String(result.body?.error?.param || "") === "model";
+    if (isInvalidModel && preferredModel !== "dall-e-2") {
+      modelUsed = "dall-e-2";
+      result = await runEdit(modelUsed);
+    }
+
+    if (!result.ok) {
+      return res.status(502).json({
+        message: "Gagal enhance image via AI.",
+        details: result.body,
+      });
+    }
+
+    const b64 = result.body?.data?.[0]?.b64_json;
+    if (!b64) {
+      return res.status(502).json({ message: "AI tidak mengembalikan image result." });
+    }
+
+    const enhancedBuffer = Buffer.from(String(b64), "base64");
+    const enhancedFile = `question-enhanced-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+    await writeFile(join(questionImageDir, enhancedFile), enhancedBuffer);
+
+    return res.json({
+      imageUrl: `/uploads/question-bank/${enhancedFile}`,
+      model: modelUsed,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      message: err?.message || "Gagal enhance image.",
+    });
+  }
+});
+
+router.post("/ocr-extract", ocrUpload.single("image"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "Image file is required." });
+  }
+  if (!env.OPENAI_API_KEY || !env.OPENAI_VISION_MODEL) {
+    return res.status(500).json({ message: "OPENAI_API_KEY/OPENAI_VISION_MODEL not configured." });
+  }
+
+  const category = String(req.body?.category || "TKD");
+  const subcategory = String(req.body?.subcategory || "Verbal Logical Reasoning");
+  const difficulty = String(req.body?.difficulty || "medium");
+  const usageType = String(req.body?.usageType || "practice");
+
+  const imageMime = req.file.mimetype || "image/jpeg";
+  const base64Image = req.file.buffer.toString("base64");
+  const dataUrl = `data:${imageMime};base64,${base64Image}`;
+
+  const schema = {
+    name: "ocr_question_extract",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        items: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              question: { type: "string" },
+              options: {
+                type: "array",
+                minItems: 2,
+                items: { type: "string" },
+              },
+              correctAnswer: { type: "string" },
+              explanation: { type: "string" },
+            },
+            required: ["question", "options", "correctAnswer", "explanation"],
+          },
+        },
+      },
+      required: ["items"],
+    },
+    strict: true,
+  } as const;
+
+  const systemPrompt = [
+    "Anda adalah OCR parser soal pilihan ganda Bahasa Indonesia.",
+    "Ekstrak soal dari gambar menjadi format JSON yang valid.",
+    "Hapus teks label yang tidak relevan seperti '(TKD BUMN 2025)'.",
+    "Pertahankan struktur baris. Jika ada poin fakta berawalan '-', pecah per baris dan ubah menjadi bullet point.",
+    "Jika jawaban benar tidak terlihat di gambar, isi correctAnswer dengan string kosong.",
+    "Jika pembahasan tidak ada, isi explanation dengan string kosong.",
+    "Pastikan opsi hanya berisi isi kalimat tanpa awalan 'A.'/'B.' dst.",
+    "Kembalikan seluruh soal yang terlihat di gambar.",
+  ].join(" ");
+
+  try {
+    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: env.OPENAI_VISION_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Ekstrak soal pilihan ganda dari gambar berikut." },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+        response_format: { type: "json_schema", json_schema: schema },
+      }),
+    });
+
+    if (!aiRes.ok) {
+      const errBody = await aiRes.json().catch(() => ({}));
+      return res.status(502).json({
+        message: "OCR request failed",
+        details: errBody,
+      });
+    }
+
+    const data = (await aiRes.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      return res.status(502).json({ message: "OCR result is empty." });
+    }
+
+    const parsed = JSON.parse(content) as {
+      items: Array<{
+        question: string;
+        options: string[];
+        correctAnswer: string;
+        explanation: string;
+      }>;
+    };
+
+    const cleaned = [] as Array<{
+      id: string;
+      category: string;
+      subcategory: string;
+      difficulty: string;
+      usageType: string;
+      question: string;
+      options: string[];
+      correctAnswer: string;
+      explanation: string;
+      source: "ocr";
+      sourceDetail: string;
+    }>;
+
+    for (const item of parsed.items || []) {
+      let question = prettifyOcrQuestion(String(item.question || "").trim());
+      let options = (item.options || [])
+        .map((opt) => String(opt || "").replace(/^[A-E]\.?\s*/i, "").trim())
+        .filter(Boolean);
+
+      if (options.length < 2) {
+        const extracted = extractOptionsFromQuestionText(question);
+        if (extracted.options.length >= 2) {
+          question = extracted.question;
+          options = extracted.options;
+        }
+      }
+      let correctAnswer = String(item.correctAnswer || "").trim().toUpperCase().slice(0, 1);
+      let explanation = String(item.explanation || "").trim();
+
+      const hasValidAnswer = /^[A-E]$/.test(correctAnswer);
+      if ((!hasValidAnswer || !explanation) && question && options.length >= 2) {
+        const solvePrompt = [
+          "Jawab soal pilihan ganda berikut.",
+          "Kembalikan JSON dengan format:",
+          '{"correctAnswer":"A","explanation":"..."}',
+          "correctAnswer wajib hanya 1 huruf A/B/C/D/E.",
+          "Penjelasan harus singkat dan langsung.",
+        ].join(" ");
+
+        const solveRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: env.OPENAI_MODEL,
+            messages: [
+              { role: "system", content: solvePrompt },
+              {
+                role: "user",
+                content: JSON.stringify({ question, options }),
+              },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "ocr_solved_answer",
+                strict: true,
+                schema: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    correctAnswer: { type: "string" },
+                    explanation: { type: "string" },
+                  },
+                  required: ["correctAnswer", "explanation"],
+                },
+              },
+            },
+          }),
+        });
+
+        if (solveRes.ok) {
+          const solveBody = (await solveRes.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          const solveContent = solveBody.choices?.[0]?.message?.content;
+          if (solveContent) {
+            const solved = JSON.parse(solveContent) as { correctAnswer?: string; explanation?: string };
+            correctAnswer = String(solved.correctAnswer || correctAnswer).trim().toUpperCase().slice(0, 1);
+            explanation = String(solved.explanation || explanation).trim();
+          }
+        }
+      }
+
+      cleaned.push({
+        id: randomUUID(),
+        category,
+        subcategory,
+        difficulty,
+        usageType,
+        question,
+        options,
+        correctAnswer,
+        explanation,
+        source: "ocr",
+        sourceDetail: "",
+      });
+    }
+
+    const groupedByTitle = new Map<string, number[]>();
+    for (let i = 0; i < cleaned.length; i++) {
+      const current = cleaned[i];
+      if (!current) continue;
+      const title = deriveOcrContextTitle(current.question);
+      if (!title) continue;
+      const key = title.trim().toLowerCase();
+      if (!groupedByTitle.has(key)) groupedByTitle.set(key, []);
+      groupedByTitle.get(key)!.push(i);
+    }
+    for (const [, indexes] of groupedByTitle.entries()) {
+      const firstIdx = indexes[0];
+      if (typeof firstIdx !== "number") continue;
+      const first = cleaned[firstIdx];
+      if (!first) continue;
+      const title = deriveOcrContextTitle(first.question);
+      if (!title) continue;
+      const detail = indexes.length > 1 ? buildOcrGroupedDetail(title) : "OCR Import";
+      for (const idx of indexes) {
+        const target = cleaned[idx];
+        if (target) target.sourceDetail = detail;
+      }
+    }
+    for (const item of cleaned) {
+      if (!item.sourceDetail) item.sourceDetail = "OCR Import";
+    }
+
+    return res.json({
+      items: cleaned,
+      imageUrl: null,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      message: err?.message || "Failed to process OCR.",
+    });
+  }
 });
 
 router.post("/validate", async (req, res) => {
@@ -693,6 +1185,7 @@ router.post("/autofix", async (req, res) => {
       correctAnswer: fixed.correctAnswer,
       explanation: fixed.explanation,
       source: "ai",
+      sourceDetail: "",
       status: "draft"
     });
   }
@@ -721,7 +1214,7 @@ router.post("/generate", async (req, res) => {
     return res.status(500).json({ message: "OPENAI_API_KEY/OPENAI_MODEL not configured." });
   }
 
-  const { category, subcategory, difficulty, usageType, save, validate } = parsed.data;
+  const { category, subcategory, difficulty, usageType, save, validate, sharedContext, contextText, usedStatements } = parsed.data;
   const blueprint = blueprints[subcategory];
   if (!blueprint) {
     return res.status(400).json({ message: "Unsupported subcategory." });
@@ -804,6 +1297,24 @@ router.post("/generate", async (req, res) => {
       "Jika pola wajib bukan kuantitatif, DILARANG menggunakan data hitung/himpunan sebagai inti soal.",
       "Pastikan pola soal berbeda dari dua contoh teratas."
     );
+    if (sharedContext && (contextText || "").trim()) {
+      const fixedContext = (contextText || "").trim();
+      userLines.push(
+        "",
+        "MODE KHUSUS: SHARED CONTEXT",
+        "Gunakan context_text berikut apa adanya (jangan ubah fakta, angka, maupun entitas):",
+        fixedContext,
+        "",
+        "Buat statement_to_judge baru yang berbeda dari statement sebelumnya.",
+        "statement_to_judge wajib bisa dinilai dengan opsi A/B/C (bukan opini)."
+      );
+      if (Array.isArray(usedStatements) && usedStatements.length > 0) {
+        userLines.push(
+          "Dilarang mengulang statement berikut:",
+          ...usedStatements.map((s, i) => `${i + 1}. ${s}`)
+        );
+      }
+    }
   }
   const user = userLines.join("\n");
 
@@ -1035,6 +1546,13 @@ router.post("/generate", async (req, res) => {
   const aiValid =
     validation ? validation.is_valid && validation.verdict === "valid" : true;
 
+  const generatedSourceDetail =
+    subcategory === "Verbal Logical Reasoning" &&
+    sharedContext &&
+    (parsedOut.context_text || "").trim()
+      ? buildSharedContextDetail((parsedOut.context_text || "").trim())
+      : "";
+
   let savedId: string | null = null;
   if (save && aiValid) {
     savedId = randomUUID();
@@ -1049,6 +1567,7 @@ router.post("/generate", async (req, res) => {
       correctAnswer: parsedOut.correctAnswer,
       explanation: parsedOut.explanation,
       source: "ai",
+      sourceDetail: generatedSourceDetail,
       status: "draft"
     });
   }
@@ -1056,6 +1575,7 @@ router.post("/generate", async (req, res) => {
   return res.json({
     ...parsedOut,
     id: savedId,
+    sourceDetail: generatedSourceDetail,
     isValid: aiValid,
     validationError: aiValid ? null : (validation?.issues?.[0]?.message || "AI validator flagged issues."),
     validationDetail: validation ?? null
@@ -1069,6 +1589,9 @@ router.get("/", async (req, res) => {
   const difficulty = (req.query.difficulty || "").toString().trim();
   const status = (req.query.status || "").toString().trim();
   const usage = (req.query.usage || "").toString().trim();
+  const source = (req.query.source || "").toString().trim();
+  const sourceDetail = (req.query.sourceDetail || "").toString().trim();
+  const sourceDetailPrefix = (req.query.sourceDetailPrefix || "").toString().trim();
   const page = Math.max(1, Number(req.query.page || 1));
   const limit = Math.min(50, Math.max(5, Number(req.query.limit || 10)));
   const offset = (page - 1) * limit;
@@ -1087,6 +1610,9 @@ router.get("/", async (req, res) => {
   if (subcategory) whereParts.push(eq(questionBank.subcategory, subcategory));
   if (difficulty) whereParts.push(eq(questionBank.difficulty, difficulty));
   if (status) whereParts.push(eq(questionBank.status, status));
+  if (source) whereParts.push(eq(questionBank.source, source));
+  if (sourceDetail) whereParts.push(eq(questionBank.sourceDetail, sourceDetail));
+  if (sourceDetailPrefix) whereParts.push(like(questionBank.sourceDetail, `${sourceDetailPrefix}%`));
 
   const whereClause = whereParts.length ? and(...whereParts) : undefined;
 
@@ -1100,6 +1626,7 @@ router.get("/", async (req, res) => {
       question: questionBank.question,
       usageType: questionBank.usageType,
       source: questionBank.source,
+      sourceDetail: questionBank.sourceDetail,
       createdAt: questionBank.createdAt,
       usedCount: sql<number>`count(${questionUsage.id})`,
       setCount: sql<number>`count(${latsolSetQuestion.id})`,
@@ -1172,6 +1699,7 @@ router.get("/:id", async (req, res) => {
       explanation: questionBank.explanation,
       status: questionBank.status,
       source: questionBank.source,
+      sourceDetail: questionBank.sourceDetail,
       createdAt: questionBank.createdAt,
       updatedAt: questionBank.updatedAt,
     })
@@ -1199,6 +1727,7 @@ router.patch("/:id", async (req, res) => {
     explanation: z.string().optional(),
     status: z.enum(["draft", "approved", "archived"]).optional(),
     source: z.string().optional(),
+    sourceDetail: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body || {});
   if (!parsed.success) {
@@ -1238,6 +1767,7 @@ router.patch("/:id", async (req, res) => {
       explanation: questionBank.explanation,
       status: questionBank.status,
       source: questionBank.source,
+      sourceDetail: questionBank.sourceDetail,
       createdAt: questionBank.createdAt,
       updatedAt: questionBank.updatedAt,
     })

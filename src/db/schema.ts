@@ -128,6 +128,7 @@ export const questionBank = sqliteTable(
     correctAnswer: text("correct_answer"),
     explanation: text("explanation"),
     source: text("source").notNull().default("goldset"),
+    sourceDetail: text("source_detail").notNull().default(""),
     status: text("status").notNull().default("draft"),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)

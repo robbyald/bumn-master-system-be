@@ -8,6 +8,21 @@ import { fromNodeHeaders } from "better-auth/node";
 
 const router = Router();
 
+const parseSharedContextMeta = (sourceDetail?: string | null): {
+  groupKey?: string;
+  title?: string;
+  imageUrl?: string;
+  imagePosition?: "top" | "bottom";
+} => {
+  const raw = String(sourceDetail || "");
+  const grp = raw.match(/GRP:([A-Z0-9]+)/i)?.[1];
+  const title = raw.match(/KONTEN:\s*([^|]+)/i)?.[1]?.trim();
+  const imageUrl = raw.match(/IMG:\s*([^|]+)/i)?.[1]?.trim();
+  const imagePosRaw = raw.match(/IMG_POS:\s*([^|]+)/i)?.[1]?.trim().toLowerCase();
+  const imagePosition: "top" | "bottom" = imagePosRaw === "top" ? "top" : "bottom";
+  return { groupKey: grp, title, imageUrl, imagePosition };
+};
+
 router.get("/sets", async (req, res) => {
   const categoryId = (req.query.categoryId || "").toString().trim();
   if (!categoryId) {
@@ -122,6 +137,7 @@ router.post("/sets/:id/start", async (req, res) => {
       question: questionBank.question,
       options: questionBank.options,
       difficulty: questionBank.difficulty,
+      sourceDetail: questionBank.sourceDetail,
     })
     .from(questionBank)
     .where(inArray(questionBank.id, questionIds));
@@ -132,28 +148,42 @@ router.post("/sets/:id/start", async (req, res) => {
       id: String.fromCharCode(97 + idx),
       text,
     }));
+    const meta = parseSharedContextMeta(q.sourceDetail);
+    const cleanQuestion = String(q.question || "").replace(/\n{2,}\[IMAGE\]\s+\S+\s*$/i, "").trim();
     return {
       id: q.id,
       category: q.subcategory || q.category,
-      content: q.question,
+      content: meta.title ? `KONTEN: ${meta.title}\n\n${cleanQuestion}` : cleanQuestion,
       options,
       difficulty: q.difficulty as "easy" | "medium" | "hard",
+      imageUrl: meta.imageUrl || null,
+      imagePosition: meta.imagePosition || "bottom",
+      _groupKey: meta.groupKey || q.id,
     };
   });
 
-  // Shuffle questions to reduce cheating while keeping set fixed
-  for (let i = questions.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const qi = questions[i];
-    const qj = questions[j];
-    if (!qi || !qj) continue;
-    questions[i] = qj;
-    questions[j] = qi;
+  // Shuffle by group to keep shared-context questions adjacent
+  const grouped = new Map<string, typeof questions>();
+  for (const q of questions) {
+    const key = (q as any)._groupKey || q.id;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(q);
   }
+  const buckets = Array.from(grouped.values());
+  for (let i = buckets.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const qi = buckets[i];
+    const qj = buckets[j];
+    if (!qi || !qj) continue;
+    buckets[i] = qj;
+    buckets[j] = qi;
+  }
+  const flattened = buckets.flat();
+  const questionsOut = flattened.map(({ _groupKey, ...rest }: any) => rest);
 
   // Track usage for each question in this set (for analytics)
   const userId = session?.user?.id || null;
-  for (const q of questions) {
+  for (const q of questionsOut) {
     await db.insert(questionUsage).values({
       id: randomUUID(),
       questionId: q.id,
@@ -169,7 +199,7 @@ router.post("/sets/:id/start", async (req, res) => {
       totalQuestions: set.totalQuestions,
       durationMinutes: set.durationMinutes,
     },
-    questions,
+    questions: questionsOut,
   });
 });
 

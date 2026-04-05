@@ -106,10 +106,12 @@ export const buildCheckStatusVaRequest = (payload) => {
     req.partnerServiceId = payload.partnerServiceId;
     req.customerNo = payload.customerNo;
     req.virtualAccountNo = payload.virtualAccountNo;
-    // Keep nullable to avoid forcing request ids that might not match acquirer records.
-    req.inquiryRequestId = payload.inquiryRequestId ?? null;
-    req.paymentRequestId = payload.paymentRequestId ?? null;
-    req.additionalInfo = payload.additionalInfo ?? "";
+    if (payload.inquiryRequestId)
+        req.inquiryRequestId = payload.inquiryRequestId;
+    if (payload.paymentRequestId)
+        req.paymentRequestId = payload.paymentRequestId;
+    if (payload.additionalInfo)
+        req.additionalInfo = payload.additionalInfo;
     return req;
 };
 export const buildCreateVaRequest = (payload) => {
