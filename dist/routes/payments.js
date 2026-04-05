@@ -114,6 +114,118 @@ const toIsoWithOffset = (date) => {
     const tzM = pad(Math.abs(tzOffset) % 60);
     return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}${sign}${tzH}:${tzM}`;
 };
+const normalizeVaNumber = (value) => String(value || "").replace(/\s+/g, "");
+const resolveNotificationStatus = (payload) => {
+    const fromGeneral = mapDokuStatus(payload);
+    if (fromGeneral !== "pending")
+        return fromGeneral;
+    const fromVa = mapDokuVaStatus(payload);
+    if (fromVa !== "pending")
+        return fromVa;
+    const paidAmountRaw = payload?.paidAmount?.value ??
+        payload?.virtualAccountData?.paidAmount?.value?.value ??
+        payload?.virtualAccountData?.paidAmount?.value;
+    const paidAmount = Number.parseFloat(String(paidAmountRaw || "0").replace(/,/g, ""));
+    if (Number.isFinite(paidAmount) && paidAmount > 0)
+        return "paid";
+    return "pending";
+};
+const buildDefaultNotificationAck = (payload) => ({
+    responseCode: "2002500",
+    responseMessage: "Success",
+    virtualAccountData: {
+        partnerServiceId: payload?.partnerServiceId || "",
+        customerNo: payload?.customerNo || "",
+        virtualAccountNo: payload?.virtualAccountNo || "",
+        virtualAccountName: payload?.virtualAccountName || "",
+        virtualAccountEmail: payload?.virtualAccountEmail || "",
+        paymentRequestId: payload?.paymentRequestId || "",
+        paidAmount: payload?.paidAmount || { value: "0.00", currency: "IDR" },
+        virtualAccountTrxType: payload?.virtualAccountTrxType || "C",
+        additionalInfo: payload?.additionalInfo || {},
+    },
+});
+export const handleDokuVaNotification = async (req, res) => {
+    const payload = req.body || {};
+    const authHeader = String(req.headers?.authorization || "");
+    let ackPayload;
+    try {
+        const mode = await getGatewayMode();
+        const doku = getDokuSnap(mode);
+        if (typeof doku?.validateTokenAndGenerateNotificationResponse === "function") {
+            ackPayload = doku.validateTokenAndGenerateNotificationResponse(authHeader, payload);
+        }
+        else {
+            ackPayload = buildDefaultNotificationAck(payload);
+        }
+    }
+    catch (err) {
+        return res.status(401).json({
+            responseCode: "4012500",
+            responseMessage: err?.message || "Unauthorized",
+        });
+    }
+    try {
+        const trxId = String(payload?.trxId || "").trim();
+        const vaNo = normalizeVaNumber(payload?.virtualAccountNo);
+        let order;
+        if (trxId) {
+            const byTrx = await db
+                .select()
+                .from(paymentOrder)
+                .where(eq(paymentOrder.externalOrderNo, trxId))
+                .limit(1);
+            order = byTrx[0];
+        }
+        if (!order && vaNo) {
+            const byVa = await db
+                .select()
+                .from(paymentOrder)
+                .where(sql `replace(coalesce(${paymentOrder.externalInvoiceNo}, ''), ' ', '') = ${vaNo}`)
+                .limit(1);
+            order = byVa[0];
+        }
+        if (order) {
+            const nextStatus = resolveNotificationStatus(payload);
+            await db
+                .update(paymentOrder)
+                .set({
+                status: nextStatus,
+                rawCallback: JSON.stringify({
+                    type: "doku_notification",
+                    receivedAt: new Date().toISOString(),
+                    authorization: authHeader ? "[present]" : "[missing]",
+                    payload,
+                    ack: ackPayload,
+                }),
+                paidAt: nextStatus === "paid" ? new Date() : order.paidAt,
+            })
+                .where(eq(paymentOrder.id, order.id));
+            if (nextStatus === "paid") {
+                const raw = (() => {
+                    try {
+                        return order?.rawResponse ? JSON.parse(order.rawResponse) : {};
+                    }
+                    catch {
+                        return {};
+                    }
+                })();
+                const pointsUsed = Number(raw?._checkoutMeta?.pointsUsed || 0);
+                await spendPointsOnceForOrder({
+                    userId: order.userId,
+                    packageId: order.packageId,
+                    orderId: order.id,
+                    pointsUsed,
+                });
+                await ensureEnrolled(order.userId, order.packageId);
+            }
+        }
+    }
+    catch (err) {
+        console.error("[DOKU NOTIFICATION] Failed to process notification:", err);
+    }
+    return res.status(200).json(ackPayload || buildDefaultNotificationAck(payload));
+};
 router.get("/doku/token-b2b", async (req, res) => {
     try {
         const session = await getSession(req);
@@ -599,9 +711,6 @@ router.get("/orders/:id/status", async (req, res) => {
                     customerNo: String(vaData.customerNo),
                     virtualAccountNo: String(vaData.virtualAccountNo),
                     virtualAccountName: vaData.virtualAccountName,
-                    inquiryRequestId: null,
-                    paymentRequestId: null,
-                    additionalInfo: "",
                 });
                 console.log("[DOKU CHECK-STATUS-VA REQUEST]", {
                     partnerServiceId: statusVaPayload.partnerServiceId,
@@ -806,53 +915,5 @@ router.get("/orders/:id/instruction", async (req, res) => {
         howToPayApi: additionalInfo?.howToPayApi || null,
     });
 });
-router.post("/doku/webhook", async (req, res) => {
-    // Minimal webhook receiver for sandbox observability.
-    // Signature verification can be added once header format from merchant setup is finalized.
-    const payload = req.body || {};
-    const invoiceNumber = payload?.order?.invoice_number ||
-        payload?.invoice_number ||
-        payload?.transaction?.invoice_number ||
-        null;
-    if (!invoiceNumber) {
-        return res.status(200).json({ ok: true });
-    }
-    const rows = await db
-        .select()
-        .from(paymentOrder)
-        .where(eq(paymentOrder.externalInvoiceNo, String(invoiceNumber)))
-        .limit(1);
-    const order = rows[0];
-    if (!order) {
-        return res.status(200).json({ ok: true });
-    }
-    const mapped = mapDokuStatus(payload);
-    await db
-        .update(paymentOrder)
-        .set({
-        status: mapped,
-        rawCallback: JSON.stringify(payload),
-        paidAt: mapped === "paid" ? new Date() : order.paidAt,
-    })
-        .where(eq(paymentOrder.id, order.id));
-    if (mapped === "paid") {
-        const raw = (() => {
-            try {
-                return order.rawResponse ? JSON.parse(order.rawResponse) : {};
-            }
-            catch {
-                return {};
-            }
-        })();
-        const pointsUsed = Number(raw?._checkoutMeta?.pointsUsed || 0);
-        await spendPointsOnceForOrder({
-            userId: order.userId,
-            packageId: order.packageId,
-            orderId: order.id,
-            pointsUsed,
-        });
-        await ensureEnrolled(order.userId, order.packageId);
-    }
-    return res.status(200).json({ ok: true });
-});
+router.post("/doku/webhook", handleDokuVaNotification);
 export default router;

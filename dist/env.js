@@ -9,6 +9,8 @@ export const env = {
     CORS_ORIGIN: corsOrigins,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
     OPENAI_MODEL: process.env.OPENAI_MODEL || "",
+    OPENAI_VISION_MODEL: process.env.OPENAI_VISION_MODEL || process.env.OPENAI_MODEL || "",
+    OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini",
     OPENAI_VALIDATOR_MODEL: process.env.OPENAI_VALIDATOR_MODEL || process.env.OPENAI_MODEL || "",
     APP_BASE_URL: process.env.APP_BASE_URL || "http://localhost:3000",
     DOKU_CLIENT_ID: process.env.DOKU_CLIENT_ID || "",

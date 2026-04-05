@@ -3,7 +3,7 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { db } from "../db/index.js";
 import { latsolSet, latsolSetQuestion, questionBank } from "../db/schema.js";
-import { and, eq, like, sql } from "drizzle-orm";
+import { and, eq, like, sql, inArray, ne } from "drizzle-orm";
 const router = Router();
 router.get("/sets", async (req, res) => {
     const page = Math.max(1, Number(req.query.page || 1));
@@ -65,6 +65,7 @@ router.get("/sets/:id", async (req, res) => {
         difficulty: questionBank.difficulty,
         status: questionBank.status,
         subcategory: questionBank.subcategory,
+        sourceDetail: questionBank.sourceDetail,
         order: latsolSetQuestion.order,
     })
         .from(latsolSetQuestion)
@@ -135,6 +136,19 @@ router.put("/sets/:id/questions", async (req, res) => {
     const set = sets[0];
     if (parsed.data.questionIds.length !== set.totalQuestions) {
         return res.status(400).json({ message: `Jumlah soal harus ${set.totalQuestions}.` });
+    }
+    const conflicting = await db
+        .select({
+        questionId: latsolSetQuestion.questionId,
+        setId: latsolSetQuestion.setId,
+    })
+        .from(latsolSetQuestion)
+        .where(and(inArray(latsolSetQuestion.questionId, parsed.data.questionIds), ne(latsolSetQuestion.setId, id)));
+    if (conflicting.length > 0) {
+        const conflictQuestionIds = Array.from(new Set(conflicting.map((c) => c.questionId))).slice(0, 5);
+        return res.status(400).json({
+            message: `Ada soal yang sudah terdaftar di set lain (${conflictQuestionIds.join(", ")}).`,
+        });
     }
     db.transaction((tx) => {
         tx.delete(latsolSetQuestion).where(eq(latsolSetQuestion.setId, id)).run();

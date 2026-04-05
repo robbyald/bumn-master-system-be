@@ -30,7 +30,7 @@ import adminTransactionsRouter from "./routes/adminTransactions.js";
 import featureTogglesRouter from "./routes/featureToggles.js";
 import adminFeatureTogglesRouter from "./routes/adminFeatureToggles.js";
 import latsolRouter from "./routes/latsol.js";
-import paymentsRouter from "./routes/payments.js";
+import paymentsRouter, { handleDokuVaNotification } from "./routes/payments.js";
 import adminPaymentMethodsRouter from "./routes/adminPaymentMethods.js";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -92,6 +92,8 @@ app.use((req, res, next) => {
         return next();
     if (req.path.startsWith("/api/payments/doku/webhook"))
         return next();
+    if (req.path.startsWith("/v1/transfer-va/payment"))
+        return next();
     // Dev helper: allow testing DOKU endpoints via Postman without CSRF token.
     // Keep CSRF enforced for these paths in production.
     if (process.env.NODE_ENV !== "production" && req.path.startsWith("/api/payments/doku/")) {
@@ -119,6 +121,7 @@ app.use("/api/profile", profileRouter);
 app.use("/api/promo-banner", promoBannerRouter);
 app.use("/api/latsol", latsolRouter);
 app.use("/api/payments", paymentsRouter);
+app.post("/v1/transfer-va/payment", handleDokuVaNotification);
 app.use("/uploads", express.static(join(process.cwd(), "uploads")));
 app.get("/api/health", (_req, res) => {
     res.json({

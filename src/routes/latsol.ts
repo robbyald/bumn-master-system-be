@@ -8,11 +8,19 @@ import { fromNodeHeaders } from "better-auth/node";
 
 const router = Router();
 
-const parseSharedContextMeta = (sourceDetail?: string | null): { groupKey?: string; title?: string } => {
+const parseSharedContextMeta = (sourceDetail?: string | null): {
+  groupKey?: string;
+  title?: string;
+  imageUrl?: string;
+  imagePosition?: "top" | "bottom";
+} => {
   const raw = String(sourceDetail || "");
   const grp = raw.match(/GRP:([A-Z0-9]+)/i)?.[1];
   const title = raw.match(/KONTEN:\s*([^|]+)/i)?.[1]?.trim();
-  return { groupKey: grp, title };
+  const imageUrl = raw.match(/IMG:\s*([^|]+)/i)?.[1]?.trim();
+  const imagePosRaw = raw.match(/IMG_POS:\s*([^|]+)/i)?.[1]?.trim().toLowerCase();
+  const imagePosition: "top" | "bottom" = imagePosRaw === "top" ? "top" : "bottom";
+  return { groupKey: grp, title, imageUrl, imagePosition };
 };
 
 router.get("/sets", async (req, res) => {
@@ -141,12 +149,15 @@ router.post("/sets/:id/start", async (req, res) => {
       text,
     }));
     const meta = parseSharedContextMeta(q.sourceDetail);
+    const cleanQuestion = String(q.question || "").replace(/\n{2,}\[IMAGE\]\s+\S+\s*$/i, "").trim();
     return {
       id: q.id,
       category: q.subcategory || q.category,
-      content: meta.title ? `KONTEN: ${meta.title}\n\n${q.question}` : q.question,
+      content: meta.title ? `KONTEN: ${meta.title}\n\n${cleanQuestion}` : cleanQuestion,
       options,
       difficulty: q.difficulty as "easy" | "medium" | "hard",
+      imageUrl: meta.imageUrl || null,
+      imagePosition: meta.imagePosition || "bottom",
       _groupKey: meta.groupKey || q.id,
     };
   });
