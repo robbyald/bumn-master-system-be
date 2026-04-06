@@ -32,7 +32,7 @@ router.get("/", async (_req, res) => {
     await db.insert(featureToggle).values(defaults);
     return res.json(defaults);
   }
-  const row = rows[0];
+  const row = rows[0]!;
   return res.json({
     id: row.id,
     tryout: row.tryout,

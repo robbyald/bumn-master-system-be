@@ -149,9 +149,9 @@ const ruleBasedValidateVlr = (input: {
   const ctxNums = extractInts(ctx);
   const mentionsAtLeastOne = /(setidaknya salah satu|minimal salah satu|seluruh .*setidaknya salah satu)/i.test(ctx);
   if (mentionsAtLeastOne && ctxNums.length >= 3) {
-    const total = ctxNums[0];
-    const groupA = ctxNums[1];
-    const groupB = ctxNums[2];
+    const total = ctxNums[0] ?? 0;
+    const groupA = ctxNums[1] ?? 0;
+    const groupB = ctxNums[2] ?? 0;
     if (groupA + groupB < total) {
       return buildInvalid(
         [{ code: "MATH_ERROR", message: "Jumlah peserta dua kelompok kurang dari total, bertentangan dengan klaim setidaknya satu." }],
@@ -201,8 +201,8 @@ const ruleBasedValidateVlr = (input: {
   if (hasCategoryHint && headMatches.length >= 2) {
     const headMap = new Map<string, number>();
     for (const m of headMatches) {
-      const num = Number(m[1]);
-      const head = m[2].toLowerCase();
+      const num = Number(m[1] ?? 0);
+      const head = String(m[2] ?? "").toLowerCase();
       headMap.set(head, (headMap.get(head) || 0) + num);
     }
 
@@ -210,7 +210,7 @@ const ruleBasedValidateVlr = (input: {
       const regex = new RegExp(`jumlah\\s+${head}\\b[^\\d]*(\\d+)`, "i");
       const m = explanation.match(regex);
       if (m) {
-        const stated = Number(m[1]);
+        const stated = Number(m[1] ?? 0);
         if (stated !== sum) {
           return buildInvalid(
             [{ code: "MATH_ERROR", message: "Jumlah pada explanation tidak sesuai dengan data konteks." }],
@@ -501,11 +501,14 @@ const pickVlrExamples = (count: number): VlrGold[] => {
   for (const p of shuffledPatterns) {
     const arr = groups.get(p)!;
     if (arr.length === 0) continue;
-    selected.push(arr[Math.floor(Math.random() * arr.length)]);
+    const picked = arr[Math.floor(Math.random() * arr.length)];
+    if (picked) selected.push(picked);
     if (selected.length >= count) break;
   }
   while (selected.length < count) {
-    selected.push(items[Math.floor(Math.random() * items.length)]);
+    const picked = items[Math.floor(Math.random() * items.length)];
+    if (!picked) break;
+    selected.push(picked);
   }
   return selected;
 };
@@ -514,7 +517,7 @@ const pickVlrPattern = (): string => {
   const items = loadVlrGoldset();
   const patterns = Array.from(new Set(items.map((q) => q.pattern || "ambiguitas")));
   if (patterns.length === 0) return "ambiguitas";
-  return patterns[Math.floor(Math.random() * patterns.length)];
+  return patterns[Math.floor(Math.random() * patterns.length)] || "ambiguitas";
 };
 
 const deriveContextTitle = (ctx: string): string => {
@@ -1173,14 +1176,15 @@ router.post("/autofix", async (req, res) => {
 
   let savedId: string | null = null;
   if (payload.save && aiValid) {
-    savedId = randomUUID();
+    const newId = randomUUID();
+    savedId = newId;
     await db.insert(questionBank).values({
-      id: savedId,
+      id: newId,
       category: payload.category,
       subcategory: payload.subcategory,
       difficulty: payload.difficulty,
       usageType: payload.usageType,
-      question,
+      question: question ?? "",
       options: JSON.stringify(fixed.options),
       correctAnswer: fixed.correctAnswer,
       explanation: fixed.explanation,
@@ -1369,15 +1373,16 @@ router.post("/generate", async (req, res) => {
         strict: true
       } as const);
 
-  let parsedOut: {
+  type GeneratedOut = {
     question?: string;
     context_text?: string;
     statement_to_judge?: string;
     options: string[];
     correctAnswer: "A" | "B" | "C" | "D" | "E";
     explanation: string;
-  } | null = null;
-  let lastInvalidOut: typeof parsedOut = null;
+  };
+  let parsedOut: GeneratedOut | null = null;
+  let lastInvalidOut: GeneratedOut | null = null;
 
   let lastValidationError: string | null = null;
   const maxAttempts = 3;
@@ -1555,14 +1560,15 @@ router.post("/generate", async (req, res) => {
 
   let savedId: string | null = null;
   if (save && aiValid) {
-    savedId = randomUUID();
+    const newId = randomUUID();
+    savedId = newId;
     await db.insert(questionBank).values({
-      id: savedId,
+      id: newId,
       category,
       subcategory,
       difficulty,
       usageType,
-      question: parsedOut.question,
+      question: parsedOut.question ?? "",
       options: JSON.stringify(parsedOut.options),
       correctAnswer: parsedOut.correctAnswer,
       explanation: parsedOut.explanation,
