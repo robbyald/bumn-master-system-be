@@ -141,7 +141,7 @@ router.put("/sets/:id/questions", async (req, res) => {
 
   const sets = await db.select().from(latsolSet).where(eq(latsolSet.id, id)).limit(1);
   if (!sets.length) return res.status(404).json({ message: "Set not found" });
-  const set = sets[0];
+  const set = sets[0]!;
   if (parsed.data.questionIds.length !== set.totalQuestions) {
     return res.status(400).json({ message: `Jumlah soal harus ${set.totalQuestions}.` });
   }
@@ -186,7 +186,7 @@ router.post("/sets/:id/autofill", async (req, res) => {
   const id = req.params.id;
   const sets = await db.select().from(latsolSet).where(eq(latsolSet.id, id)).limit(1);
   if (!sets.length) return res.status(404).json({ message: "Set not found" });
-  const set = sets[0];
+  const set = sets[0]!;
 
   const candidates = await db
     .select({
