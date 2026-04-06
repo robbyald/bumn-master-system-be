@@ -145,9 +145,25 @@ const buildDefaultNotificationAck = (payload) => ({
         additionalInfo: payload?.additionalInfo || {},
     },
 });
+const dokuNotifLogMeta = (req, payload) => ({
+    at: new Date().toISOString(),
+    method: req?.method,
+    path: req?.originalUrl || req?.url,
+    invoice: String(payload?.trxId || ""),
+    paymentRequestId: String(payload?.paymentRequestId || ""),
+    partnerServiceId: String(payload?.partnerServiceId || ""),
+    virtualAccountNo: normalizeVaNumber(payload?.virtualAccountNo),
+    channel: String(payload?.additionalInfo?.channel || ""),
+    xTimestamp: String(req?.headers?.["x-timestamp"] || ""),
+    xExternalId: String(req?.headers?.["x-external-id"] || ""),
+    xPartnerId: String(req?.headers?.["x-partner-id"] || ""),
+    channelId: String(req?.headers?.["channel-id"] || ""),
+    authHeaderPresent: Boolean(req?.headers?.authorization),
+});
 export const handleDokuVaNotification = async (req, res) => {
     const payload = req.body || {};
     const authHeader = String(req.headers?.authorization || "");
+    console.log("[DOKU NOTIF][IN]", dokuNotifLogMeta(req, payload));
     let ackPayload;
     try {
         const mode = await getGatewayMode();
@@ -160,6 +176,10 @@ export const handleDokuVaNotification = async (req, res) => {
         }
     }
     catch (err) {
+        console.error("[DOKU NOTIF][AUTH_ERROR]", {
+            ...dokuNotifLogMeta(req, payload),
+            error: err?.message || "Unauthorized",
+        });
         return res.status(401).json({
             responseCode: "4012500",
             responseMessage: err?.message || "Unauthorized",
@@ -219,14 +239,37 @@ export const handleDokuVaNotification = async (req, res) => {
                 });
                 await ensureEnrolled(order.userId, order.packageId);
             }
+            console.log("[DOKU NOTIF][PROCESSED]", {
+                ...dokuNotifLogMeta(req, payload),
+                orderId: order.id,
+                orderStatus: nextStatus,
+            });
+        }
+        else {
+            console.warn("[DOKU NOTIF][ORDER_NOT_FOUND]", dokuNotifLogMeta(req, payload));
         }
     }
     catch (err) {
         console.error("[DOKU NOTIFICATION] Failed to process notification:", err);
     }
+    console.log("[DOKU NOTIF][ACK]", {
+        ...dokuNotifLogMeta(req, payload),
+        ackCode: String(ackPayload?.responseCode || "2002500"),
+    });
     return res.status(200).json(ackPayload || buildDefaultNotificationAck(payload));
 };
 export const handleDokuTokenRequest = async (req, res) => {
+    const meta = {
+        at: new Date().toISOString(),
+        method: req?.method,
+        path: req?.originalUrl || req?.url,
+        xTimestamp: String(req?.headers?.["x-timestamp"] || ""),
+        xExternalId: String(req?.headers?.["x-external-id"] || ""),
+        xPartnerId: String(req?.headers?.["x-partner-id"] || ""),
+        channelId: String(req?.headers?.["channel-id"] || ""),
+        authHeaderPresent: Boolean(req?.headers?.authorization),
+    };
+    console.log("[DOKU TOKEN-REQUEST][IN]", meta);
     try {
         const mode = await getGatewayMode();
         const doku = getDokuSnap(mode);
@@ -240,9 +283,17 @@ export const handleDokuTokenRequest = async (req, res) => {
         const tokenResp = doku.validateSignatureAndGenerateToken(req, endpointPath);
         const headers = typeof tokenResp?.header?.toObject === "function" ? tokenResp.header.toObject() : {};
         const body = typeof tokenResp?.body?.toObject === "function" ? tokenResp.body.toObject() : tokenResp;
+        console.log("[DOKU TOKEN-REQUEST][ACK]", {
+            ...meta,
+            responseCode: String(body?.responseCode || ""),
+        });
         return res.status(200).set(headers || {}).json(body);
     }
     catch (err) {
+        console.error("[DOKU TOKEN-REQUEST][ERROR]", {
+            ...meta,
+            error: err?.message || "Unauthorized",
+        });
         return res.status(401).json({
             responseCode: "4017300",
             responseMessage: err?.message || "Unauthorized",
