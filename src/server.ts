@@ -96,7 +96,9 @@ app.use(cookieParser());
 const csrfProtection = csurf({
   cookie: {
     httpOnly: true,
-    sameSite: "lax"
+    // Allow FE on different origin (localhost) to send CSRF cookie to BE on Render.
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production"
   }
 });
 
