@@ -218,6 +218,8 @@ const dokuNotifLogMeta = (req: any, payload: any) => ({
 export const handleDokuVaNotification = async (req: any, res: any) => {
   const payload = req.body || {};
   const authHeader = String(req.headers?.authorization || "");
+  console.log("[DOKU NOTIF][RAW_HEADERS]", req.headers || {});
+  console.log("[DOKU NOTIF][RAW_BODY]", payload);
   console.log("[DOKU NOTIF][IN]", dokuNotifLogMeta(req, payload));
 
   let ackPayload: any;
@@ -329,6 +331,8 @@ export const handleDokuTokenRequest = async (req: any, res: any) => {
     channelId: String(req?.headers?.["channel-id"] || ""),
     authHeaderPresent: Boolean(req?.headers?.authorization),
   };
+  console.log("[DOKU TOKEN-REQUEST][RAW_HEADERS]", req.headers || {});
+  console.log("[DOKU TOKEN-REQUEST][RAW_BODY]", req.body || {});
   console.log("[DOKU TOKEN-REQUEST][IN]", meta);
   try {
     const mode = await getGatewayMode();
