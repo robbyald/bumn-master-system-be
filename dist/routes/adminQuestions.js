@@ -829,7 +829,10 @@ router.post("/ocr-extract", ocrUpload.single("image"), async (req, res) => {
         }
         const groupedByTitle = new Map();
         for (let i = 0; i < cleaned.length; i++) {
-            const title = deriveOcrContextTitle(cleaned[i].question);
+            const current = cleaned[i];
+            if (!current)
+                continue;
+            const title = deriveOcrContextTitle(current.question);
             if (!title)
                 continue;
             const key = title.trim().toLowerCase();
@@ -838,13 +841,20 @@ router.post("/ocr-extract", ocrUpload.single("image"), async (req, res) => {
             groupedByTitle.get(key).push(i);
         }
         for (const [, indexes] of groupedByTitle.entries()) {
-            const first = cleaned[indexes[0]];
+            const firstIdx = indexes[0];
+            if (typeof firstIdx !== "number")
+                continue;
+            const first = cleaned[firstIdx];
+            if (!first)
+                continue;
             const title = deriveOcrContextTitle(first.question);
             if (!title)
                 continue;
             const detail = indexes.length > 1 ? buildOcrGroupedDetail(title) : "OCR Import";
             for (const idx of indexes) {
-                cleaned[idx].sourceDetail = detail;
+                const target = cleaned[idx];
+                if (target)
+                    target.sourceDetail = detail;
             }
         }
         for (const item of cleaned) {

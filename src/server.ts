@@ -105,6 +105,7 @@ const csrfProtection = csurf({
 // CSRF for non-auth endpoints
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/auth/")) return next();
+  if (req.path.startsWith("/api/public/signup")) return next();
   if (req.path.startsWith("/api/payments/doku/webhook")) return next();
   if (req.path.startsWith("/token-request")) return next();
   if (req.path.startsWith("/v1/transfer-va/payment")) return next();
