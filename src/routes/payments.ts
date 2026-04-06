@@ -337,7 +337,9 @@ export const handleDokuVaNotification = async (req: any, res: any) => {
   console.log("[DOKU NOTIF][ACK]", {
     ...dokuNotifLogMeta(req, payload),
     ackCode: String(ackPayload?.responseCode || "2002500"),
+    ackMessage: String(ackPayload?.responseMessage || ""),
   });
+  console.log("[DOKU NOTIF][ACK_BODY]", ackPayload || buildDefaultNotificationAck(payload));
   return res.status(200).json(ackPayload || buildDefaultNotificationAck(payload));
 };
 
