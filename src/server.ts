@@ -42,6 +42,9 @@ process.on("unhandledRejection", (reason) => {
 });
 
 const app = express();
+// Render/Reverse proxy support: required for correct client IP detection
+// by express-rate-limit when X-Forwarded-For header is present.
+app.set("trust proxy", 1);
 
 const uploadsDir = join(process.cwd(), "uploads", "promo-banner");
 try {
