@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "../auth.js";
 import { fromNodeHeaders } from "better-auth/node";
 import { db } from "../db/index.js";
+import { env } from "../env.js";
 import { examPackage, paymentGatewayConfig, paymentMethodConfig, paymentOrder, userPackage, userPointHistory, userProfile, } from "../db/schema.js";
 import { buildCheckStatusRequest, buildCheckStatusVaRequest, buildCreateVaRequest, getDokuSnap, mapDokuStatus, mapDokuVaStatus, } from "../lib/dokuClient.js";
 const router = Router();
@@ -145,6 +146,22 @@ const buildDefaultNotificationAck = (payload) => ({
         additionalInfo: payload?.additionalInfo || {},
     },
 });
+const applyAckCompat2500 = (ackPayload) => {
+    if (!env.DOKU_ACK_COMPAT_2500)
+        return ackPayload;
+    if (!ackPayload || typeof ackPayload !== "object")
+        return ackPayload;
+    // TEMP compatibility mode for DOKU Notification Center expectation.
+    // Keep SDK validation decision intact, only normalize success code for display/testing.
+    if (String(ackPayload.responseCode || "") === "2002700") {
+        return {
+            ...ackPayload,
+            responseCode: "2002500",
+            responseMessage: "Success",
+        };
+    }
+    return ackPayload;
+};
 const dokuNotifLogMeta = (req, payload) => ({
     at: new Date().toISOString(),
     method: req?.method,
@@ -176,6 +193,7 @@ export const handleDokuVaNotification = async (req, res) => {
         else {
             ackPayload = buildDefaultNotificationAck(payload);
         }
+        ackPayload = applyAckCompat2500(ackPayload);
     }
     catch (err) {
         console.error("[DOKU NOTIF][AUTH_ERROR]", {

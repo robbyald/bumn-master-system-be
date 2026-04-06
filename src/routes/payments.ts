@@ -199,6 +199,21 @@ const buildDefaultNotificationAck = (payload: any) => ({
   },
 });
 
+const applyAckCompat2500 = (ackPayload: any) => {
+  if (!env.DOKU_ACK_COMPAT_2500) return ackPayload;
+  if (!ackPayload || typeof ackPayload !== "object") return ackPayload;
+  // TEMP compatibility mode for DOKU Notification Center expectation.
+  // Keep SDK validation decision intact, only normalize success code for display/testing.
+  if (String(ackPayload.responseCode || "") === "2002700") {
+    return {
+      ...ackPayload,
+      responseCode: "2002500",
+      responseMessage: "Success",
+    };
+  }
+  return ackPayload;
+};
+
 const dokuNotifLogMeta = (req: any, payload: any) => ({
   at: new Date().toISOString(),
   method: req?.method,
@@ -231,6 +246,7 @@ export const handleDokuVaNotification = async (req: any, res: any) => {
     } else {
       ackPayload = buildDefaultNotificationAck(payload);
     }
+    ackPayload = applyAckCompat2500(ackPayload);
   } catch (err: any) {
     console.error("[DOKU NOTIF][AUTH_ERROR]", {
       ...dokuNotifLogMeta(req, payload),
