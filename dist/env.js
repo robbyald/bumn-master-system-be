@@ -20,5 +20,6 @@ export const env = {
     DOKU_PUBLIC_KEY_DOKU: process.env.DOKU_PUBLIC_KEY_DOKU || "",
     DOKU_ISSUER: process.env.DOKU_ISSUER || "",
     DOKU_CHANNEL: process.env.DOKU_CHANNEL || "DIRECT_DEBIT_BRI_SNAP",
-    DOKU_ENV: process.env.DOKU_ENV || "sandbox"
+    DOKU_ENV: process.env.DOKU_ENV || "sandbox",
+    DOKU_ACK_COMPAT_2500: String(process.env.DOKU_ACK_COMPAT_2500 || "").toLowerCase() === "true"
 };
