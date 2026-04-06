@@ -205,10 +205,18 @@ const applyAckCompat2500 = (ackPayload: any) => {
   // TEMP compatibility mode for DOKU Notification Center expectation.
   // Keep SDK validation decision intact, only normalize success code for display/testing.
   if (String(ackPayload.responseCode || "") === "2002700") {
+    const v = ackPayload?.virtualAccountData || {};
     return {
-      ...ackPayload,
       responseCode: "2002500",
       responseMessage: "Success",
+      virtualAccountData: {
+        partnerServiceId: String(v.partnerServiceId || ""),
+        customerNo: String(v.customerNo || ""),
+        virtualAccountNo: String(v.virtualAccountNo || ""),
+        virtualAccountName: String(v.virtualAccountName || ""),
+        trxId: String(v.trxId || ""),
+        paymentRequestId: String(v.paymentRequestId || ""),
+      },
     };
   }
   return ackPayload;
