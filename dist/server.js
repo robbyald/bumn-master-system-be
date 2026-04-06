@@ -30,7 +30,7 @@ import adminTransactionsRouter from "./routes/adminTransactions.js";
 import featureTogglesRouter from "./routes/featureToggles.js";
 import adminFeatureTogglesRouter from "./routes/adminFeatureToggles.js";
 import latsolRouter from "./routes/latsol.js";
-import paymentsRouter, { handleDokuVaNotification } from "./routes/payments.js";
+import paymentsRouter, { handleDokuTokenRequest, handleDokuVaNotification } from "./routes/payments.js";
 import adminPaymentMethodsRouter from "./routes/adminPaymentMethods.js";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -83,14 +83,20 @@ app.use(cookieParser());
 const csrfProtection = csurf({
     cookie: {
         httpOnly: true,
-        sameSite: "lax"
+        // Allow FE on different origin (localhost) to send CSRF cookie to BE on Render.
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production"
     }
 });
 // CSRF for non-auth endpoints
 app.use((req, res, next) => {
     if (req.path.startsWith("/api/auth/"))
         return next();
+    if (req.path.startsWith("/api/public/signup"))
+        return next();
     if (req.path.startsWith("/api/payments/doku/webhook"))
+        return next();
+    if (req.path.startsWith("/token-request"))
         return next();
     if (req.path.startsWith("/v1/transfer-va/payment"))
         return next();
@@ -121,6 +127,7 @@ app.use("/api/profile", profileRouter);
 app.use("/api/promo-banner", promoBannerRouter);
 app.use("/api/latsol", latsolRouter);
 app.use("/api/payments", paymentsRouter);
+app.post("/token-request", handleDokuTokenRequest);
 app.post("/v1/transfer-va/payment", handleDokuVaNotification);
 app.use("/uploads", express.static(join(process.cwd(), "uploads")));
 app.get("/api/health", (_req, res) => {

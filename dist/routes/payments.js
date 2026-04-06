@@ -226,6 +226,29 @@ export const handleDokuVaNotification = async (req, res) => {
     }
     return res.status(200).json(ackPayload || buildDefaultNotificationAck(payload));
 };
+export const handleDokuTokenRequest = async (req, res) => {
+    try {
+        const mode = await getGatewayMode();
+        const doku = getDokuSnap(mode);
+        if (typeof doku?.validateSignatureAndGenerateToken !== "function") {
+            return res.status(500).json({
+                responseCode: "5007300",
+                responseMessage: "DOKU SDK method validateSignatureAndGenerateToken tidak tersedia.",
+            });
+        }
+        const endpointPath = "/token-request";
+        const tokenResp = doku.validateSignatureAndGenerateToken(req, endpointPath);
+        const headers = typeof tokenResp?.header?.toObject === "function" ? tokenResp.header.toObject() : {};
+        const body = typeof tokenResp?.body?.toObject === "function" ? tokenResp.body.toObject() : tokenResp;
+        return res.status(200).set(headers || {}).json(body);
+    }
+    catch (err) {
+        return res.status(401).json({
+            responseCode: "4017300",
+            responseMessage: err?.message || "Unauthorized",
+        });
+    }
+};
 router.get("/doku/token-b2b", async (req, res) => {
     try {
         const session = await getSession(req);
