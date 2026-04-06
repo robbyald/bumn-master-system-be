@@ -187,35 +187,32 @@ const buildDefaultNotificationAck = (payload: any) => ({
   responseCode: "2002500",
   responseMessage: "Success",
   virtualAccountData: {
-    partnerServiceId: payload?.partnerServiceId || "",
-    customerNo: payload?.customerNo || "",
-    virtualAccountNo: payload?.virtualAccountNo || "",
-    virtualAccountName: payload?.virtualAccountName || "",
-    virtualAccountEmail: payload?.virtualAccountEmail || "",
-    paymentRequestId: payload?.paymentRequestId || "",
-    paidAmount: payload?.paidAmount || { value: "0.00", currency: "IDR" },
-    virtualAccountTrxType: payload?.virtualAccountTrxType || "C",
-    additionalInfo: payload?.additionalInfo || {},
+    partnerServiceId: String(payload?.partnerServiceId || ""),
+    customerNo: String(payload?.customerNo || ""),
+    virtualAccountNo: String(payload?.virtualAccountNo || ""),
+    virtualAccountName: String(payload?.virtualAccountName || ""),
+    trxId: String(payload?.trxId || ""),
+    paymentRequestId: String(payload?.paymentRequestId || ""),
   },
 });
 
-const applyAckCompat2500 = (ackPayload: any) => {
+const applyAckCompat2500 = (ackPayload: any, payload: any) => {
   if (!env.DOKU_ACK_COMPAT_2500) return ackPayload;
   if (!ackPayload || typeof ackPayload !== "object") return ackPayload;
   // TEMP compatibility mode for DOKU Notification Center expectation.
   // Keep SDK validation decision intact, only normalize success code for display/testing.
-  if (String(ackPayload.responseCode || "") === "2002700") {
+  if (["2002700", "2002500"].includes(String(ackPayload.responseCode || ""))) {
     const v = ackPayload?.virtualAccountData || {};
     return {
       responseCode: "2002500",
       responseMessage: "Success",
       virtualAccountData: {
-        partnerServiceId: String(v.partnerServiceId || ""),
-        customerNo: String(v.customerNo || ""),
-        virtualAccountNo: String(v.virtualAccountNo || ""),
-        virtualAccountName: String(v.virtualAccountName || ""),
-        trxId: String(v.trxId || ""),
-        paymentRequestId: String(v.paymentRequestId || ""),
+        partnerServiceId: String(v.partnerServiceId || payload?.partnerServiceId || ""),
+        customerNo: String(v.customerNo || payload?.customerNo || ""),
+        virtualAccountNo: String(v.virtualAccountNo || payload?.virtualAccountNo || ""),
+        virtualAccountName: String(v.virtualAccountName || payload?.virtualAccountName || ""),
+        trxId: String(v.trxId || payload?.trxId || ""),
+        paymentRequestId: String(v.paymentRequestId || payload?.paymentRequestId || ""),
       },
     };
   }
@@ -254,7 +251,7 @@ export const handleDokuVaNotification = async (req: any, res: any) => {
     } else {
       ackPayload = buildDefaultNotificationAck(payload);
     }
-    ackPayload = applyAckCompat2500(ackPayload);
+    ackPayload = applyAckCompat2500(ackPayload, payload);
   } catch (err: any) {
     console.error("[DOKU NOTIF][AUTH_ERROR]", {
       ...dokuNotifLogMeta(req, payload),
