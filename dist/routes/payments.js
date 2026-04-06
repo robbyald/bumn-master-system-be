@@ -268,6 +268,7 @@ export const handleDokuTokenRequest = async (req, res) => {
         xTimestamp: String(req?.headers?.["x-timestamp"] || ""),
         xExternalId: String(req?.headers?.["x-external-id"] || ""),
         xPartnerId: String(req?.headers?.["x-partner-id"] || ""),
+        xClientKey: String(req?.headers?.["x-client-key"] || ""),
         channelId: String(req?.headers?.["channel-id"] || ""),
         authHeaderPresent: Boolean(req?.headers?.authorization),
     };
@@ -277,20 +278,20 @@ export const handleDokuTokenRequest = async (req, res) => {
     try {
         const mode = await getGatewayMode();
         const doku = getDokuSnap(mode);
-        if (typeof doku?.getTokenB2B !== "function") {
+        if (typeof doku?.validateSignatureAndGenerateToken !== "function") {
             return res.status(500).json({
                 responseCode: "5007300",
-                responseMessage: "DOKU SDK method getTokenB2B tidak tersedia.",
+                responseMessage: "DOKU SDK method validateSignatureAndGenerateToken tidak tersedia.",
             });
         }
-        const tokenResp = typeof doku?.getTokenB2BStrict === "function"
-            ? await doku.getTokenB2BStrict()
-            : await doku.getTokenB2B();
+        const tokenResp = doku.validateSignatureAndGenerateToken(req);
+        const headers = typeof tokenResp?.header?.toObject === "function" ? tokenResp.header.toObject() : {};
+        const body = typeof tokenResp?.body?.toObject === "function" ? tokenResp.body.toObject() : tokenResp;
         console.log("[DOKU TOKEN-REQUEST][ACK]", {
             ...meta,
-            responseCode: String(tokenResp?.responseCode || ""),
+            responseCode: String(body?.responseCode || ""),
         });
-        return res.status(200).json(tokenResp);
+        return res.status(200).set(headers || {}).json(body);
     }
     catch (err) {
         console.error("[DOKU TOKEN-REQUEST][ERROR]", {
