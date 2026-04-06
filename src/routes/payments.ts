@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "../auth.js";
 import { fromNodeHeaders } from "better-auth/node";
 import { db } from "../db/index.js";
+import { env } from "../env.js";
 import {
   examPackage,
   paymentGatewayConfig,
@@ -332,25 +333,23 @@ export const handleDokuTokenRequest = async (req: any, res: any) => {
   try {
     const mode = await getGatewayMode();
     const doku = getDokuSnap(mode);
-    if (typeof doku?.validateSignatureAndGenerateToken !== "function") {
+    if (typeof doku?.getTokenB2B !== "function") {
       return res.status(500).json({
         responseCode: "5007300",
-        responseMessage: "DOKU SDK method validateSignatureAndGenerateToken tidak tersedia.",
+        responseMessage: "DOKU SDK method getTokenB2B tidak tersedia.",
       });
     }
 
-    const endpointPath = "/token-request";
-    const tokenResp = doku.validateSignatureAndGenerateToken(req, endpointPath);
-    const headers =
-      typeof tokenResp?.header?.toObject === "function" ? tokenResp.header.toObject() : {};
-    const body =
-      typeof tokenResp?.body?.toObject === "function" ? tokenResp.body.toObject() : tokenResp;
+    const tokenResp =
+      typeof doku?.getTokenB2BStrict === "function"
+        ? await doku.getTokenB2BStrict()
+        : await doku.getTokenB2B();
 
     console.log("[DOKU TOKEN-REQUEST][ACK]", {
       ...meta,
-      responseCode: String(body?.responseCode || ""),
+      responseCode: String(tokenResp?.responseCode || ""),
     });
-    return res.status(200).set(headers || {}).json(body);
+    return res.status(200).json(tokenResp);
   } catch (err: any) {
     console.error("[DOKU TOKEN-REQUEST][ERROR]", {
       ...meta,
